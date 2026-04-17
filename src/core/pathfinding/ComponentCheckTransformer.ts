@@ -1,7 +1,7 @@
-import type { PathTransformer } from "./PathTransformer";
-import type { PathResult } from "./PathResult";
-import { noPath } from "./PathResult";
-import type { UnionFind } from "./UnionFind";
+import type { PathTransformer } from "./PathTransformer.js";
+import type { PathResult } from "./PathResult.js";
+import { noPath } from "./PathResult.js";
+import type { UnionFind } from "./UnionFind.js";
 
 /**
  * Fail-fast transformer that rejects pathfinding requests when

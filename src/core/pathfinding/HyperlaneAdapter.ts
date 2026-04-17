@@ -1,4 +1,4 @@
-import type { AStarAdapter } from "./AStar";
+import type { AStarAdapter } from "./AStar.js";
 
 /**
  * CSR (Compressed Sparse Row) adjacency representation of a star map.

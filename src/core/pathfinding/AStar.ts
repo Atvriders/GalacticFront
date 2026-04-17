@@ -1,7 +1,7 @@
-import type { PriorityQueue } from "./PriorityQueue";
-import type { PathResult } from "./PathResult";
-import { noPath } from "./PathResult";
-import { MinHeap } from "./MinHeap";
+import type { PriorityQueue } from "./PriorityQueue.js";
+import type { PathResult } from "./PathResult.js";
+import { noPath } from "./PathResult.js";
+import { MinHeap } from "./MinHeap.js";
 
 /** Maximum iterations before A* gives up. */
 const MAX_ITERATIONS = 500_000;

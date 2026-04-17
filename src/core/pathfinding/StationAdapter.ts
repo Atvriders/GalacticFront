@@ -1,4 +1,4 @@
-import type { AStarAdapter } from "./AStar";
+import type { AStarAdapter } from "./AStar.js";
 
 /**
  * Network of stations (Hyperloop nodes) with positions and connections.

@@ -2,7 +2,7 @@
 // SoundManager – stub for audio playback
 // ---------------------------------------------------------------------------
 
-import { SoundId } from "./Sounds";
+import { SoundId } from "./Sounds.js";
 
 export type SoundCategory = "music" | "sfx";
 

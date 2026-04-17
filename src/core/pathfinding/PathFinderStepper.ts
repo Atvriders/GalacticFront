@@ -1,4 +1,4 @@
-import type { PathResult } from "./PathResult";
+import type { PathResult } from "./PathResult.js";
 
 /**
  * Function type for a pathfinder that takes (from, to) and returns a PathResult.

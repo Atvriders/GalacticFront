@@ -1,8 +1,8 @@
-import type { StarMap } from "./HyperlaneAdapter";
-import type { PathResult } from "./PathResult";
-import { HyperlaneAdapter } from "./HyperlaneAdapter";
-import { BucketQueue } from "./BucketQueue";
-import { aStar } from "./AStar";
+import type { StarMap } from "./HyperlaneAdapter.js";
+import type { PathResult } from "./PathResult.js";
+import { HyperlaneAdapter } from "./HyperlaneAdapter.js";
+import { BucketQueue } from "./BucketQueue.js";
+import { aStar } from "./AStar.js";
 
 /**
  * Convenience wrapper for hyperlane pathfinding.

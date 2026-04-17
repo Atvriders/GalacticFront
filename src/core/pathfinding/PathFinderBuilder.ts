@@ -1,6 +1,6 @@
-import type { PathTransformer } from "./PathTransformer";
-import type { PathResult } from "./PathResult";
-import type { PathFn } from "./PathFinderStepper";
+import type { PathTransformer } from "./PathTransformer.js";
+import type { PathResult } from "./PathResult.js";
+import type { PathFn } from "./PathFinderStepper.js";
 
 /**
  * Fluent builder for composing path transformers around a base pathfinder.

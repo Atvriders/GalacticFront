@@ -1,4 +1,4 @@
-import type { PriorityQueue } from "./PriorityQueue";
+import type { PriorityQueue } from "./PriorityQueue.js";
 
 /**
  * O(1) amortised push / O(bucket-scan) pop priority queue using stamp-based cycling.

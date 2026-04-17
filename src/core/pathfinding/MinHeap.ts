@@ -1,4 +1,4 @@
-import type { PriorityQueue } from "./PriorityQueue";
+import type { PriorityQueue } from "./PriorityQueue.js";
 
 /**
  * Binary min-heap backed by typed arrays.

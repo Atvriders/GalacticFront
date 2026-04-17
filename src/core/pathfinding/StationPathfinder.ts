@@ -1,10 +1,10 @@
-import type { StationNetwork } from "./StationAdapter";
-import type { PathResult } from "./PathResult";
-import { StationAdapter } from "./StationAdapter";
-import { UnionFind } from "./UnionFind";
-import { MinHeap } from "./MinHeap";
-import { aStar } from "./AStar";
-import { noPath } from "./PathResult";
+import type { StationNetwork } from "./StationAdapter.js";
+import type { PathResult } from "./PathResult.js";
+import { StationAdapter } from "./StationAdapter.js";
+import { UnionFind } from "./UnionFind.js";
+import { MinHeap } from "./MinHeap.js";
+import { aStar } from "./AStar.js";
+import { noPath } from "./PathResult.js";
 
 /**
  * Station (Hyperloop) pathfinder with cluster-aware connectivity check.

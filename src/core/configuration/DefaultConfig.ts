@@ -1,5 +1,5 @@
 import { UnitType, PlanetType } from "@core/game/Types";
-import { GameBalanceConfig, UnitCostConfig } from "./Config";
+import { GameBalanceConfig, UnitCostConfig } from "./Config.js";
 
 export const DEFAULT_CONFIG: GameBalanceConfig = {
   ticksPerSecond: 10,

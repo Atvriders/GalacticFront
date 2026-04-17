@@ -4,7 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build",
+    "build:server": "tsc --outDir dist",
+    "start": "node dist/server/Server.js",
+    "start:dev": "tsx src/server/Server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src/ tests/",

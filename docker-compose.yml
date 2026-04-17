@@ -1,0 +1,17 @@
+services:
+  galacticfront:
+    image: ghcr.io/atvriders/galacticfront:master
+    ports:
+      - "80:80"
+    environment:
+      - WORKER_COUNT=4
+      - GAME_ENV=production
+      - DEV_JWT=0
+      - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s

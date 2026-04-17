@@ -6,8 +6,8 @@
   "scripts": {
     "build": "tsc --noEmit && vite build",
     "build:server": "tsc --outDir dist",
-    "start": "node dist/server/Server.js",
-    "start:dev": "tsx src/server/Server.ts",
+    "start": "npx tsx src/server/Server.ts",
+    "start:dev": "npx tsx src/server/Server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "eslint src/ tests/",
@@ -37,6 +37,7 @@
     "jose": "^6.2.2",
     "lit": "^3.3.2",
     "seedrandom": "^3.0.5",
+    "tsx": "^4.21.0",
     "uuid": "^13.0.0",
     "ws": "^8.20.0",
     "zod": "^3.23.0"

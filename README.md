@@ -86,10 +86,10 @@ docker compose up
 
 # Or pull and run directly
 docker pull ghcr.io/atvriders/galacticfront:master
-docker run -p 80:80 ghcr.io/atvriders/galacticfront:master
+docker run -p 3041:80 ghcr.io/atvriders/galacticfront:master
 ```
 
-The Docker image is automatically built and pushed to `ghcr.io/atvriders/galacticfront` by GitHub Actions on every push to master. It includes nginx, the Node.js server (4 workers), and the built client — ready to play on port 80.
+The Docker image is automatically built and pushed to `ghcr.io/atvriders/galacticfront` by GitHub Actions on every push to master. It includes nginx, the Node.js server (4 workers), and the built client — ready to play on port 3041.
 
 ### Local Development
 

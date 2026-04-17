@@ -2,7 +2,7 @@ services:
   galacticfront:
     image: ghcr.io/atvriders/galacticfront:master
     ports:
-      - "80:80"
+      - "3041:80"
     environment:
       - WORKER_COUNT=4
       - GAME_ENV=production

@@ -60,7 +60,7 @@ describe("jwt", () => {
   });
 
   describe("EdDSA verification", () => {
-    let privateKey: jose.KeyLike;
+    let privateKey: jose.CryptoKey;
     let publicKeyPem: string;
 
     beforeEach(async () => {

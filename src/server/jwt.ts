@@ -6,7 +6,7 @@ export interface UserInfo {
   email?: string;
 }
 
-let publicKey: jose.KeyLike | null = null;
+let publicKey: jose.CryptoKey | null = null;
 
 /**
  * Initialize the JWT verifier with an EdDSA public key (PEM or JWK).
@@ -21,7 +21,7 @@ export async function initJwt(publicKeyPem: string): Promise<void> {
 export async function initJwtFromJwk(
   jwk: jose.JWK,
 ): Promise<void> {
-  publicKey = await jose.importJWK(jwk, "EdDSA");
+  publicKey = (await jose.importJWK(jwk, "EdDSA")) as jose.CryptoKey;
 }
 
 /**

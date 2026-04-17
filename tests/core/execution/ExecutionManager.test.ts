@@ -3,14 +3,14 @@ import { ExecutionManager } from "../../../src/core/execution/ExecutionManager";
 import type { Execution } from "../../../src/core/execution/Execution";
 import { GameImpl } from "../../../src/core/game/GameImpl";
 import { IntentType } from "../../../src/core/Schemas";
-import type { GameConfig, StampedIntent } from "../../../src/core/Schemas";
+import type { GameConfig, StampedIntent, GameID, ClientID } from "../../../src/core/Schemas";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 const TEST_GAME_CONFIG: GameConfig = {
-  gameID: "test-game",
+  gameID: "test-game" as GameID,
   mapWidth: 100,
   mapHeight: 100,
   maxPlayers: 8,
@@ -28,7 +28,7 @@ function makeGame(): GameImpl {
 /** A minimal StampedIntent carrying a Surrender intent (no extra fields). */
 function surrenderStamped(playerID = 1): StampedIntent {
   return {
-    clientID: "client-1",
+    clientID: "client-1" as ClientID,
     playerID,
     turn: 0,
     intent: { type: IntentType.Surrender },
@@ -38,7 +38,7 @@ function surrenderStamped(playerID = 1): StampedIntent {
 /** A minimal StampedIntent carrying a SetTargetTroopRatio intent. */
 function troopRatioStamped(playerID = 1): StampedIntent {
   return {
-    clientID: "client-1",
+    clientID: "client-1" as ClientID,
     playerID,
     turn: 0,
     intent: { type: IntentType.SetTargetTroopRatio, ratio: 0.5 },

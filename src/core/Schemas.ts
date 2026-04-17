@@ -4,11 +4,11 @@ import { z } from "zod";
 // Branded / primitive types
 // ---------------------------------------------------------------------------
 
-export type GameID = string & { readonly __brand: "GameID" };
-export type ClientID = string & { readonly __brand: "ClientID" };
-
 export const GameIDSchema = z.string().brand<"GameID">();
 export const ClientIDSchema = z.string().brand<"ClientID">();
+
+export type GameID = z.infer<typeof GameIDSchema>;
+export type ClientID = z.infer<typeof ClientIDSchema>;
 
 /** Non-negative integer */
 export const PlayerIDSchema = z.number().int().nonnegative();

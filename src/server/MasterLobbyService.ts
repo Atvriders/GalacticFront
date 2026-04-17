@@ -1,5 +1,5 @@
 import type { WorkerInfo } from "./Master.js";
-import type { LobbyInfo, IpcMessage } from "./IpcMessages.js";
+import type { LobbyInfo, IpcMessage, UpdateLobbyMessage } from "./IpcMessages.js";
 import type { GameConfig, GameID } from "../core/Schemas.js";
 import { v4 as uuidv4 } from "uuid";
 
@@ -36,7 +36,7 @@ export class MasterLobbyService {
     msg: { type: string; [key: string]: unknown },
   ): void {
     if (msg.type === "UpdateLobby") {
-      const lobby = (msg as IpcMessage & { type: "UpdateLobby" }).lobby;
+      const lobby = (msg as unknown as UpdateLobbyMessage).lobby;
       this.lobbies.set(lobby.gameId, lobby);
     }
     if (msg.type === "LobbyListRequest") {

@@ -3,10 +3,11 @@ import { GameImpl } from "../../../src/core/game/GameImpl";
 import { PlayerType, UnitType, GameUpdateType } from "../../../src/core/game/Types";
 import { DEFAULT_CONFIG } from "../../../src/core/configuration/DefaultConfig";
 import type { GameBalanceConfig } from "../../../src/core/configuration/Config";
+import type { GameID } from "../../../src/core/Schemas";
 
 function makeConfig(overrides: Record<string, unknown> = {}) {
   return {
-    gameID: "test-game",
+    gameID: "test-game" as GameID,
     mapWidth: 20,
     mapHeight: 20,
     maxPlayers: 4,

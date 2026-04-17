@@ -17,14 +17,14 @@ import { RetreatExecution } from "../../../src/core/execution/RetreatExecution";
 import { GameImpl } from "../../../src/core/game/GameImpl";
 import { IntentType } from "../../../src/core/Schemas";
 import { PlayerType, TerrainType } from "../../../src/core/game/Types";
-import type { GameConfig } from "../../../src/core/Schemas";
+import type { GameConfig, GameID } from "../../../src/core/Schemas";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 const TEST_CONFIG: GameConfig = {
-  gameID: "exec-test",
+  gameID: "exec-test" as GameID,
   mapWidth: 20,
   mapHeight: 20,
   maxPlayers: 8,

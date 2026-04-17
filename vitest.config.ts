@@ -5,6 +5,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@core": resolve(__dirname, "src/core"),
+      "@client": resolve(__dirname, "src/client"),
     },
   },
   test: {

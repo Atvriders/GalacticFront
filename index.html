@@ -206,6 +206,42 @@
       .option-card .opt-title { font-size: 15px; font-weight: 700; color: #f3f4f6; }
       .option-card .opt-desc { font-size: 12px; color: #6b7280; margin-top: 4px; }
 
+      /* AI count selector */
+      .ai-count-row {
+        display: flex; align-items: center; justify-content: center; gap: 20px;
+        margin-bottom: 16px;
+      }
+      .ai-count-btn {
+        width: 44px; height: 44px; border-radius: 50%;
+        background: rgba(255,255,255,0.06);
+        border: 2px solid rgba(255,255,255,0.1);
+        color: #e0e0e0; font-size: 22px; font-weight: 700;
+        cursor: pointer; transition: all 0.2s ease;
+        display: flex; align-items: center; justify-content: center;
+        line-height: 1;
+      }
+      .ai-count-btn:hover {
+        background: rgba(99,102,241,0.2);
+        border-color: rgba(99,102,241,0.5);
+        transform: scale(1.05);
+      }
+      .ai-count-btn:active { transform: scale(0.95); }
+      .ai-count-display { min-width: 120px; text-align: center; }
+      .ai-count-num {
+        font-size: 48px; font-weight: 800;
+        background: linear-gradient(135deg, #6ee7b7, #3b82f6);
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        line-height: 1;
+      }
+      .ai-count-label {
+        font-size: 11px; color: #6b7280; text-transform: uppercase;
+        letter-spacing: 1px; margin-top: 6px;
+      }
+      .ai-count-slider {
+        width: 100%; max-width: 360px; margin: 0 auto; display: block;
+        accent-color: #6366f1;
+      }
+
       .setup-actions {
         display: flex; gap: 16px; justify-content: center; margin-top: 40px;
       }
@@ -227,6 +263,39 @@
         transform: translateY(-2px);
         box-shadow: 0 8px 32px rgba(99,102,241,0.5);
       }
+      .btn-launch {
+        display: inline-flex; align-items: center; gap: 10px;
+        padding: 18px 56px;
+        font-size: 18px;
+        background: linear-gradient(135deg, #22d3ee, #3b82f6 50%, #6366f1);
+        box-shadow: 0 6px 24px rgba(99,102,241,0.45);
+        animation: launchPulse 2.4s ease-in-out infinite;
+      }
+      .btn-launch:hover {
+        transform: translateY(-3px) scale(1.02);
+        box-shadow: 0 12px 40px rgba(99,102,241,0.7);
+      }
+      @keyframes launchPulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.45),
+                               0 6px 24px rgba(99,102,241,0.45); }
+        50%      { box-shadow: 0 0 0 12px rgba(99,102,241,0.0),
+                               0 8px 32px rgba(99,102,241,0.6); }
+      }
+      .setup-hint {
+        display: inline-block; margin-left: 10px;
+        font-size: 11px; font-weight: 400; color: #6b7280;
+        text-transform: none; letter-spacing: 0;
+      }
+      .option-card { position: relative; }
+      .option-card:hover { transform: translateY(-2px); }
+      .option-card.selected { transform: translateY(-2px); }
+      .option-card.selected::after {
+        content: "\2713"; position: absolute; top: 6px; right: 8px;
+        width: 18px; height: 18px; border-radius: 50%;
+        background: #6366f1; color: white;
+        font-size: 11px; font-weight: 700;
+        display: flex; align-items: center; justify-content: center;
+      }
 
       /* ── Game page ───────────────────────────────────────────────────── */
       #page-game.active {
@@ -235,14 +304,33 @@
       #page-game canvas { display: block; }
       .game-hud {
         position: fixed; top: 16px; left: 16px; z-index: 40;
-        display: flex; flex-direction: column; gap: 8px;
+        display: flex; flex-direction: row; gap: 8px;
+        padding: 6px;
+        background: rgba(10,10,18,0.6);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 12px;
+        backdrop-filter: blur(12px);
       }
       .hud-item {
-        background: rgba(10,10,18,0.85); backdrop-filter: blur(8px);
-        border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
-        padding: 8px 14px; font-size: 13px; color: #9ca3af;
+        background: rgba(20,20,32,0.7);
+        border: 1px solid rgba(255,255,255,0.05);
+        border-radius: 8px;
+        padding: 8px 14px;
+        font-size: 11px;
+        color: #9ca3af;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        display: flex; flex-direction: column; align-items: flex-start;
+        min-width: 72px;
       }
-      .hud-item strong { color: #e0e0e0; }
+      .hud-item strong {
+        color: #6ee7b7;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 0;
+        text-transform: none;
+        margin-top: 2px;
+      }
       .exit-btn {
         position: fixed; top: 16px; right: 16px; z-index: 70;
         padding: 8px 20px; border-radius: 8px;
@@ -384,27 +472,27 @@
       <div id="page-singleplayer" class="page">
         <div class="setup-container">
           <h2>Singleplayer Setup</h2>
-          <p class="subtitle">Configure your battle against the AI empires</p>
+          <p class="subtitle">Choose your settings and conquer the galaxy</p>
 
           <div class="setup-section">
-            <h3>Difficulty</h3>
+            <h3>Difficulty <span class="setup-hint">Controls how aggressive the AI empires play</span></h3>
             <div class="option-grid" id="difficulty-grid">
-              <div class="option-card" data-difficulty="Easy">
+              <div class="option-card" data-difficulty="Easy" title="Forgiving AI that builds up slowly. Great for learning the controls.">
                 <div class="opt-icon">&#127775;</div>
                 <div class="opt-title">Easy</div>
                 <div class="opt-desc">Relaxed pace, forgiving AI</div>
               </div>
-              <div class="option-card selected" data-difficulty="Medium">
+              <div class="option-card selected" data-difficulty="Medium" title="A balanced challenge. The AI will expand and attack at a steady pace.">
                 <div class="opt-icon">&#9878;&#65039;</div>
                 <div class="opt-title">Medium</div>
                 <div class="opt-desc">Balanced challenge</div>
               </div>
-              <div class="option-card" data-difficulty="Hard">
+              <div class="option-card" data-difficulty="Hard" title="Aggressive AI that targets weak players and forms coalitions.">
                 <div class="opt-icon">&#128293;</div>
                 <div class="opt-title">Hard</div>
                 <div class="opt-desc">Aggressive, strategic AI</div>
               </div>
-              <div class="option-card" data-difficulty="Impossible">
+              <div class="option-card" data-difficulty="Impossible" title="Brutal AI with bonus production. Only commanders need apply.">
                 <div class="opt-icon">&#128128;</div>
                 <div class="opt-title">Impossible</div>
                 <div class="opt-desc">No mercy. Good luck.</div>
@@ -413,29 +501,45 @@
           </div>
 
           <div class="setup-section">
-            <h3>Map Size</h3>
+            <h3>Map Size <span class="setup-hint">Larger maps mean longer games and more empires to fight</span></h3>
             <div class="option-grid" id="mapsize-grid">
-              <div class="option-card" data-mapsize="sector">
+              <div class="option-card" data-mapsize="sector" title="Compact 80x80 map. Fast-paced games that last a few minutes.">
                 <div class="opt-icon">&#128313;</div>
                 <div class="opt-title">Sector</div>
-                <div class="opt-desc">50x50 -- Quick games</div>
+                <div class="opt-desc">80x80 -- Quick games</div>
               </div>
-              <div class="option-card selected" data-mapsize="arm">
+              <div class="option-card selected" data-mapsize="arm" title="Standard 150x150 map. The recommended starting size.">
                 <div class="opt-icon">&#127756;</div>
                 <div class="opt-title">Arm</div>
-                <div class="opt-desc">100x100 -- Standard</div>
+                <div class="opt-desc">150x150 -- Standard</div>
               </div>
-              <div class="option-card" data-mapsize="galaxy">
+              <div class="option-card" data-mapsize="galaxy" title="Epic 300x300 map. Long campaigns with sprawling empires.">
                 <div class="opt-icon">&#127752;</div>
                 <div class="opt-title">Galaxy</div>
-                <div class="opt-desc">200x200 -- Epic scale</div>
+                <div class="opt-desc">300x300 -- Epic scale</div>
               </div>
             </div>
           </div>
 
+          <div class="setup-section">
+            <h3>AI Opponents <span class="setup-hint">Number of rival empires that will spawn against you</span></h3>
+            <div class="ai-count-row">
+              <button class="ai-count-btn" id="btn-ai-minus" type="button" aria-label="Decrease AI count">&minus;</button>
+              <div class="ai-count-display">
+                <div class="ai-count-num" id="ai-count-value">5</div>
+                <div class="ai-count-label">AI factions</div>
+              </div>
+              <button class="ai-count-btn" id="btn-ai-plus" type="button" aria-label="Increase AI count">+</button>
+            </div>
+            <input type="range" id="ai-count-slider" min="1" max="10" value="5" class="ai-count-slider" />
+          </div>
+
           <div class="setup-actions">
             <button class="btn-back" id="btn-setup-back">Back</button>
-            <button class="btn-start" id="btn-start-game">Start Game</button>
+            <button class="btn-start btn-launch" id="btn-start-game" title="Launch into the galaxy with these settings">
+              <span>&#128640;</span>
+              <span>Launch Game</span>
+            </button>
           </div>
         </div>
       </div>
@@ -451,12 +555,40 @@
       <!-- GAME PAGE -->
       <div id="page-game" class="page">
         <div class="game-hud" id="game-hud" style="display:none;">
-          <div class="hud-item">Turn: <strong id="hud-turn">0</strong></div>
-          <div class="hud-item">Troops: <strong id="hud-troops">0</strong></div>
-          <div class="hud-item">Territory: <strong id="hud-territory">0</strong></div>
-          <div class="hud-item">FPS: <strong id="hud-fps">0</strong></div>
+          <div class="hud-item">Turn<strong id="hud-turn">0</strong></div>
+          <div class="hud-item">Troops<strong id="hud-troops">0</strong></div>
+          <div class="hud-item">Territory<strong id="hud-territory">0</strong></div>
+          <div class="hud-item">FPS<strong id="hud-fps">0</strong></div>
         </div>
         <button class="exit-btn" id="btn-exit-game">Exit Game</button>
+
+        <!-- Objectives banner (always visible during game) -->
+        <div id="game-objectives" style="display:none;position:fixed;top:16px;left:50%;transform:translateX(-50%);background:rgba(10,10,18,0.85);backdrop-filter:blur(8px);border:1px solid rgba(34,211,238,0.3);border-radius:999px;padding:8px 20px;z-index:45;font-size:13px;color:#e0e0e0;box-shadow:0 4px 20px rgba(34,211,238,0.15);">
+          <span style="color:#22d3ee;font-weight:700;">&#127919; Objective:</span>
+          <span style="color:#e0e0e0;margin-left:6px;">Conquer every rival empire</span>
+          <span style="color:#6b7280;margin-left:12px;font-size:11px;">&middot; Right-click enemy territory to attack</span>
+        </div>
+
+        <!-- Tutorial overlay (shown for 15 seconds when game starts) -->
+        <div id="game-tutorial" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(10,10,18,0.95);backdrop-filter:blur(12px);border:1px solid rgba(99,102,241,0.4);border-radius:16px;padding:32px 40px;z-index:60;max-width:500px;box-shadow:0 8px 40px rgba(99,102,241,0.3);">
+          <h2 style="font-size:22px;font-weight:700;color:#22d3ee;margin-bottom:16px;text-align:center;">&#127756; Welcome, Commander</h2>
+          <div style="color:#e0e0e0;font-size:14px;line-height:1.7;">
+            <div style="margin-bottom:12px;"><strong style="color:#22d3ee;">Your goal:</strong> Conquer the galaxy by capturing enemy territory.</div>
+            <div style="margin-bottom:8px;"><strong>&#128433; Drag</strong> the map to pan around</div>
+            <div style="margin-bottom:8px;"><strong>&#128269; Scroll</strong> to zoom in/out</div>
+            <div style="margin-bottom:8px;"><strong>&#9876; Right-click</strong> on enemy territory to attack</div>
+            <div style="margin-bottom:8px;"><strong>&#128202; HUD</strong> shows your troops, territory, and turn count</div>
+            <div style="margin-bottom:12px;"><strong>&#9099; ESC</strong> to exit</div>
+            <div style="color:#9ca3af;font-size:12px;text-align:center;margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.08);">Your empire is <span style="color:#3b82f6;font-weight:700;">blue</span>. Spread out and dominate!</div>
+          </div>
+          <button id="tutorial-dismiss" style="margin-top:20px;width:100%;padding:12px;background:linear-gradient(135deg,#3b82f6,#6366f1);color:white;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">Got it! Let's play</button>
+        </div>
+
+        <!-- Mini-map (always visible during game) -->
+        <div id="game-minimap" style="display:none;position:fixed;bottom:20px;right:20px;width:200px;height:150px;background:rgba(10,10,18,0.85);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.1);border-radius:8px;z-index:40;padding:8px;">
+          <div style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Galaxy Map</div>
+          <canvas id="minimap-canvas" style="width:100%;height:calc(100% - 24px);display:block;"></canvas>
+        </div>
       </div>
 
     </div>

@@ -85,9 +85,7 @@
         display: flex; gap: 32px; justify-content: center;
         margin-bottom: 40px; flex-wrap: wrap;
       }
-      .hero .stat {
-        text-align: center;
-      }
+      .hero .stat { text-align: center; }
       .hero .stat-value {
         font-size: 28px; font-weight: 800;
         background: linear-gradient(135deg, #6ee7b7, #3b82f6);
@@ -122,9 +120,7 @@
       .mode-card h3 {
         font-size: 16px; font-weight: 700; margin-bottom: 8px; color: #f3f4f6;
       }
-      .mode-card p {
-        font-size: 13px; color: #6b7280; line-height: 1.5;
-      }
+      .mode-card p { font-size: 13px; color: #6b7280; line-height: 1.5; }
       .mode-card .badge {
         display: inline-block; margin-top: 12px;
         padding: 4px 10px; border-radius: 99px;
@@ -160,124 +156,93 @@
       footer a { color: #6b7280; text-decoration: none; }
       footer a:hover { color: #9ca3af; }
 
-      /* ── Page containers ──────────────────────────────────────────────── */
-      .page { width: 100%; }
-
-      /* ── Toast notification ───────────────────────────────────────────── */
-      .toast {
-        position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
-        background: rgba(99,102,241,0.9); color: white;
-        padding: 12px 28px; border-radius: 12px;
-        font-size: 14px; font-weight: 600;
-        box-shadow: 0 4px 24px rgba(0,0,0,0.4);
-        z-index: 100; pointer-events: none;
-        opacity: 0; transition: opacity 0.3s ease;
+      /* ── Page visibility ─────────────────────────────────────────────── */
+      .page { display: none; }
+      .page.active {
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        min-height: 100vh; width: 100%;
       }
-      .toast.show { opacity: 1; }
 
       /* ── Singleplayer Setup ──────────────────────────────────────────── */
-      .sp-container {
-        max-width: 720px; width: 100%; margin: 0 auto;
-        padding: 100px 24px 60px; text-align: center;
+      #page-singleplayer { padding: 100px 24px 60px; }
+      .setup-container {
+        max-width: 700px; width: 100%; text-align: center;
       }
-      .sp-container h2 {
-        font-size: 36px; font-weight: 900; margin-bottom: 8px;
+      .setup-container h2 {
+        font-size: 36px; font-weight: 800; margin-bottom: 8px;
         background: linear-gradient(135deg, #6ee7b7, #3b82f6, #a78bfa);
         -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       }
-      .sp-container .sp-subtitle {
-        color: #6b7280; font-size: 15px; margin-bottom: 36px;
+      .setup-container .subtitle {
+        color: #6b7280; font-size: 15px; margin-bottom: 40px;
       }
-      .sp-section-label {
-        font-size: 13px; font-weight: 700; color: #9ca3af;
-        text-transform: uppercase; letter-spacing: 1.5px;
-        margin-bottom: 12px; text-align: left;
+      .setup-section { margin-bottom: 32px; }
+      .setup-section h3 {
+        font-size: 14px; font-weight: 600; color: #9ca3af;
+        text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;
       }
-      .sp-cards {
-        display: grid; gap: 12px; margin-bottom: 28px;
+      .option-grid {
+        display: grid; gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       }
-      .sp-cards.cols-4 { grid-template-columns: repeat(4, 1fr); }
-      .sp-cards.cols-3 { grid-template-columns: repeat(3, 1fr); }
-      @media (max-width: 600px) {
-        .sp-cards.cols-4 { grid-template-columns: repeat(2, 1fr); }
-        .sp-cards.cols-3 { grid-template-columns: 1fr; }
-      }
-      .sp-card {
+      .option-card {
         background: rgba(255,255,255,0.03);
         border: 2px solid rgba(255,255,255,0.08);
-        border-radius: 14px; padding: 20px 12px;
-        cursor: pointer; transition: all 0.25s ease;
-        text-align: center;
+        border-radius: 12px; padding: 20px 16px;
+        text-align: center; cursor: pointer;
+        transition: all 0.3s ease;
       }
-      .sp-card:hover {
+      .option-card:hover {
         background: rgba(255,255,255,0.06);
         border-color: rgba(99,102,241,0.3);
       }
-      .sp-card.selected {
+      .option-card.selected {
+        background: rgba(99,102,241,0.1);
         border-color: #6366f1;
-        background: rgba(99,102,241,0.12);
         box-shadow: 0 0 20px rgba(99,102,241,0.2);
       }
-      .sp-card .sp-card-icon { font-size: 28px; margin-bottom: 8px; }
-      .sp-card .sp-card-title {
-        font-size: 15px; font-weight: 700; color: #f3f4f6; margin-bottom: 4px;
-      }
-      .sp-card .sp-card-desc {
-        font-size: 12px; color: #6b7280; line-height: 1.4;
-      }
+      .option-card .opt-icon { font-size: 28px; margin-bottom: 8px; }
+      .option-card .opt-title { font-size: 15px; font-weight: 700; color: #f3f4f6; }
+      .option-card .opt-desc { font-size: 12px; color: #6b7280; margin-top: 4px; }
 
-      /* Slider */
-      .sp-slider-wrap {
-        margin-bottom: 32px; text-align: left;
+      .setup-actions {
+        display: flex; gap: 16px; justify-content: center; margin-top: 40px;
       }
-      .sp-slider-row {
-        display: flex; align-items: center; gap: 16px;
+      .btn-back {
+        padding: 14px 32px; border-radius: 12px;
+        font-size: 16px; font-weight: 600; border: none; cursor: pointer;
+        background: rgba(255,255,255,0.06);
+        color: #9ca3af; transition: all 0.2s;
       }
-      .sp-slider-row input[type="range"] {
-        flex: 1; accent-color: #6366f1; height: 6px;
-        -webkit-appearance: none; appearance: none;
-        background: rgba(255,255,255,0.1); border-radius: 3px; outline: none;
-      }
-      .sp-slider-row input[type="range"]::-webkit-slider-thumb {
-        -webkit-appearance: none; width: 20px; height: 20px;
-        border-radius: 50%; background: #6366f1; cursor: pointer;
-        box-shadow: 0 0 8px rgba(99,102,241,0.5);
-      }
-      .sp-slider-value {
-        font-size: 22px; font-weight: 800; min-width: 36px; text-align: center;
-        background: linear-gradient(135deg, #6ee7b7, #3b82f6);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      }
-
-      /* Launch button */
-      .launch-btn {
-        display: inline-flex; align-items: center; gap: 12px;
-        padding: 18px 56px; border-radius: 14px;
-        font-size: 20px; font-weight: 800; border: none; cursor: pointer;
-        background: linear-gradient(135deg, #10b981, #3b82f6);
+      .btn-back:hover { background: rgba(255,255,255,0.1); color: #e0e0e0; }
+      .btn-start {
+        padding: 14px 40px; border-radius: 12px;
+        font-size: 16px; font-weight: 700; border: none; cursor: pointer;
+        background: linear-gradient(135deg, #3b82f6, #6366f1);
         color: white; transition: all 0.3s ease;
-        box-shadow: 0 4px 28px rgba(16,185,129,0.3);
-        margin-bottom: 16px;
+        box-shadow: 0 4px 20px rgba(99,102,241,0.3);
       }
-      .launch-btn:hover {
+      .btn-start:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 36px rgba(16,185,129,0.5);
+        box-shadow: 0 8px 32px rgba(99,102,241,0.5);
       }
-      .back-link {
-        display: inline-block; margin-top: 8px;
-        color: #6b7280; font-size: 14px; cursor: pointer;
-        text-decoration: none; transition: color 0.2s;
-      }
-      .back-link:hover { color: #9ca3af; }
 
       /* ── Game page ───────────────────────────────────────────────────── */
-      #page-game {
-        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        z-index: 60; background: #000;
+      #page-game.active {
+        padding: 0; justify-content: flex-start;
       }
-      #game-canvas {
-        width: 100%; height: 100%; display: block;
+      #page-game canvas { display: block; }
+      .game-hud {
+        position: fixed; top: 16px; left: 16px; z-index: 40;
+        display: flex; flex-direction: column; gap: 8px;
       }
+      .hud-item {
+        background: rgba(10,10,18,0.85); backdrop-filter: blur(8px);
+        border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
+        padding: 8px 14px; font-size: 13px; color: #9ca3af;
+      }
+      .hud-item strong { color: #e0e0e0; }
       .exit-btn {
         position: fixed; top: 16px; right: 16px; z-index: 70;
         padding: 8px 20px; border-radius: 8px;
@@ -285,14 +250,40 @@
         background: rgba(255,255,255,0.1); color: #e0e0e0;
         backdrop-filter: blur(8px);
         border: 1px solid rgba(255,255,255,0.15);
-        transition: all 0.2s ease;
+        transition: all 0.2s ease; display: none;
       }
       .exit-btn:hover {
         background: rgba(239,68,68,0.3);
         border-color: rgba(239,68,68,0.5);
       }
+
+      /* ── Modal ────────────────────────────────────────────────────────── */
+      .modal-overlay {
+        display: none; position: fixed; inset: 0; z-index: 100;
+        background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+        align-items: center; justify-content: center;
+      }
+      .modal-overlay.visible { display: flex; }
+      .modal-box {
+        background: #14141f; border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 16px; padding: 40px 48px; text-align: center;
+        max-width: 420px; width: 90%;
+      }
+      .modal-box h3 {
+        font-size: 22px; font-weight: 700; margin-bottom: 12px; color: #f3f4f6;
+      }
+      .modal-box p {
+        font-size: 15px; color: #6b7280; margin-bottom: 24px; line-height: 1.5;
+      }
+      .modal-close {
+        padding: 10px 28px; border-radius: 10px;
+        font-size: 14px; font-weight: 600; border: none; cursor: pointer;
+        background: rgba(255,255,255,0.06); color: #9ca3af;
+        transition: all 0.2s;
+      }
+      .modal-close:hover { background: rgba(255,255,255,0.1); color: #e0e0e0; }
     </style>
-    <script type="module" crossorigin src="/assets/index-SJeXFrqI.js"></script>
+    <script type="module" crossorigin src="/assets/index-DY8SS9Be.js"></script>
   </head>
   <body>
     <!-- Star field background -->
@@ -305,25 +296,30 @@
 
     <!-- Navigation -->
     <nav>
-      <div class="logo" onclick="showPage('page-home')">GalacticFront.io</div>
+      <div class="logo" id="nav-logo">GalacticFront.io</div>
       <div class="links">
-        <a onclick="showPage('page-home')">Play</a>
-        <a onclick="showToast('Leaderboard coming soon!')">Leaderboard</a>
-        <a onclick="showToast('Store coming soon!')">Store</a>
-        <a onclick="showToast('Settings coming soon!')">Settings</a>
+        <a id="nav-play">Play</a>
+        <a id="nav-leaderboard">Leaderboard</a>
+        <a id="nav-store">Store</a>
+        <a id="nav-settings">Settings</a>
         <a href="https://github.com/Atvriders/GalacticFront" target="_blank">GitHub</a>
       </div>
     </nav>
 
-    <!-- Toast -->
-    <div id="toast" class="toast"></div>
+    <!-- Under Construction Modal -->
+    <div class="modal-overlay" id="modal-wip">
+      <div class="modal-box">
+        <h3 id="modal-wip-title">Under Construction</h3>
+        <p id="modal-wip-text">This feature is coming soon. Stay tuned for updates!</p>
+        <button class="modal-close" id="modal-wip-close">Got it</button>
+      </div>
+    </div>
 
     <!-- Main -->
     <div id="app">
 
-      <!-- PAGE: Home -->
-      <div id="page-home" class="page">
-        <!-- Hero -->
+      <!-- HOME PAGE -->
+      <div id="page-home" class="page active">
         <div class="hero">
           <h1>Conquer the Galaxy</h1>
           <p>Massively multiplayer real-time strategy across the Milky Way. Build empires spanning star systems. Populations in the trillions. War at galactic scale.</p>
@@ -347,33 +343,32 @@
             </div>
           </div>
 
-          <button class="play-btn" onclick="showPage('page-singleplayer')">
+          <button class="play-btn" id="btn-play-now">
             <span>Play Now</span>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 3l14 9-14 9V3z"/></svg>
           </button>
         </div>
 
-        <!-- Game Modes -->
         <div class="modes">
-          <div class="mode-card" onclick="showPage('page-singleplayer')">
+          <div class="mode-card" data-mode="ffa">
             <div class="icon">&#9876;&#65039;</div>
             <h3>Free For All</h3>
             <p>Every empire for itself. Last one standing conquers the galaxy.</p>
             <span class="badge badge-live">Live</span>
           </div>
-          <div class="mode-card" onclick="showPage('page-singleplayer')">
+          <div class="mode-card" data-mode="teams">
             <div class="icon">&#129309;</div>
             <h3>Teams</h3>
             <p>Duos, Trios, or Quads. Coordinate with allies to dominate.</p>
             <span class="badge badge-live">Live</span>
           </div>
-          <div class="mode-card" onclick="showPage('page-singleplayer')">
+          <div class="mode-card" data-mode="ranked">
             <div class="icon">&#127942;</div>
             <h3>Ranked 1v1</h3>
             <p>Climb the Elo ladder. Prove you're the supreme commander.</p>
             <span class="badge badge-ranked">Ranked</span>
           </div>
-          <div class="mode-card" onclick="showPage('page-singleplayer')">
+          <div class="mode-card" data-mode="ai">
             <div class="icon">&#129302;</div>
             <h3>vs AI</h3>
             <p>Battle 11 unique AI factions. Four difficulty levels.</p>
@@ -381,89 +376,90 @@
           </div>
         </div>
 
-        <!-- Footer -->
         <footer>
           <p>GalacticFront.io &mdash; Open source space RTS &mdash; <a href="https://github.com/Atvriders/GalacticFront">GitHub</a></p>
         </footer>
       </div>
 
-      <!-- PAGE: Singleplayer Setup -->
-      <div id="page-singleplayer" class="page" style="display:none;">
-        <div class="sp-container">
-          <h2>Start a Game</h2>
-          <p class="sp-subtitle">Configure your singleplayer match and launch into the void.</p>
+      <!-- SINGLEPLAYER SETUP PAGE -->
+      <div id="page-singleplayer" class="page">
+        <div class="setup-container">
+          <h2>Singleplayer Setup</h2>
+          <p class="subtitle">Configure your battle against the AI empires</p>
 
-          <!-- Difficulty -->
-          <div class="sp-section-label">Difficulty</div>
-          <div class="sp-cards cols-4" id="difficulty-cards">
-            <div class="sp-card selected" onclick="selectCard('difficulty-cards', this)">
-              <div class="sp-card-icon">&#x1F7E2;</div>
-              <div class="sp-card-title">Easy</div>
-              <div class="sp-card-desc">Relaxed AI, bonus resources</div>
-            </div>
-            <div class="sp-card" onclick="selectCard('difficulty-cards', this)">
-              <div class="sp-card-icon">&#x1F7E1;</div>
-              <div class="sp-card-title">Medium</div>
-              <div class="sp-card-desc">Balanced challenge</div>
-            </div>
-            <div class="sp-card" onclick="selectCard('difficulty-cards', this)">
-              <div class="sp-card-icon">&#x1F534;</div>
-              <div class="sp-card-title">Hard</div>
-              <div class="sp-card-desc">Aggressive AI, no mercy</div>
-            </div>
-            <div class="sp-card" onclick="selectCard('difficulty-cards', this)">
-              <div class="sp-card-icon">&#x1F480;</div>
-              <div class="sp-card-title">Impossible</div>
-              <div class="sp-card-desc">You will be crushed</div>
+          <div class="setup-section">
+            <h3>Difficulty</h3>
+            <div class="option-grid" id="difficulty-grid">
+              <div class="option-card" data-difficulty="Easy">
+                <div class="opt-icon">&#127775;</div>
+                <div class="opt-title">Easy</div>
+                <div class="opt-desc">Relaxed pace, forgiving AI</div>
+              </div>
+              <div class="option-card selected" data-difficulty="Medium">
+                <div class="opt-icon">&#9878;&#65039;</div>
+                <div class="opt-title">Medium</div>
+                <div class="opt-desc">Balanced challenge</div>
+              </div>
+              <div class="option-card" data-difficulty="Hard">
+                <div class="opt-icon">&#128293;</div>
+                <div class="opt-title">Hard</div>
+                <div class="opt-desc">Aggressive, strategic AI</div>
+              </div>
+              <div class="option-card" data-difficulty="Impossible">
+                <div class="opt-icon">&#128128;</div>
+                <div class="opt-title">Impossible</div>
+                <div class="opt-desc">No mercy. Good luck.</div>
+              </div>
             </div>
           </div>
 
-          <!-- Map Size -->
-          <div class="sp-section-label">Map Size</div>
-          <div class="sp-cards cols-3" id="map-cards">
-            <div class="sp-card selected" onclick="selectCard('map-cards', this)">
-              <div class="sp-card-icon">&#x2B50;</div>
-              <div class="sp-card-title">Sector</div>
-              <div class="sp-card-desc">80 systems &mdash; fast games</div>
-            </div>
-            <div class="sp-card" onclick="selectCard('map-cards', this)">
-              <div class="sp-card-icon">&#x1F30C;</div>
-              <div class="sp-card-title">Arm</div>
-              <div class="sp-card-desc">300 systems &mdash; standard</div>
-            </div>
-            <div class="sp-card" onclick="selectCard('map-cards', this)">
-              <div class="sp-card-icon">&#x1FA90;</div>
-              <div class="sp-card-title">Galaxy</div>
-              <div class="sp-card-desc">1500 systems &mdash; epic scale</div>
-            </div>
-          </div>
-
-          <!-- AI Empires slider -->
-          <div class="sp-slider-wrap">
-            <div class="sp-section-label">AI Empires</div>
-            <div class="sp-slider-row">
-              <input type="range" id="ai-slider" min="1" max="10" value="5"
-                oninput="document.getElementById('ai-count').textContent = this.value">
-              <div class="sp-slider-value" id="ai-count">5</div>
+          <div class="setup-section">
+            <h3>Map Size</h3>
+            <div class="option-grid" id="mapsize-grid">
+              <div class="option-card" data-mapsize="sector">
+                <div class="opt-icon">&#128313;</div>
+                <div class="opt-title">Sector</div>
+                <div class="opt-desc">50x50 -- Quick games</div>
+              </div>
+              <div class="option-card selected" data-mapsize="arm">
+                <div class="opt-icon">&#127756;</div>
+                <div class="opt-title">Arm</div>
+                <div class="opt-desc">100x100 -- Standard</div>
+              </div>
+              <div class="option-card" data-mapsize="galaxy">
+                <div class="opt-icon">&#127752;</div>
+                <div class="opt-title">Galaxy</div>
+                <div class="opt-desc">200x200 -- Epic scale</div>
+              </div>
             </div>
           </div>
 
-          <!-- Launch -->
-          <button class="launch-btn" onclick="showPage('page-game')">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 3l14 9-14 9V3z"/></svg>
-            Launch Game
-          </button>
-          <br>
-          <a class="back-link" onclick="showPage('page-home')">&larr; Back to Home</a>
+          <div class="setup-actions">
+            <button class="btn-back" id="btn-setup-back">Back</button>
+            <button class="btn-start" id="btn-start-game">Start Game</button>
+          </div>
         </div>
       </div>
 
-    </div>
+      <!-- LOBBY PAGE (placeholder) -->
+      <div id="page-lobby" class="page">
+        <div class="setup-container">
+          <h2>Game Lobby</h2>
+          <p class="subtitle">Waiting for players...</p>
+        </div>
+      </div>
 
-    <!-- PAGE: Game (outside #app, full-screen overlay) -->
-    <div id="page-game" class="page" style="display:none;">
-      <canvas id="game-canvas"></canvas>
-      <button class="exit-btn" onclick="showPage('page-home')">&#x2716; Exit</button>
+      <!-- GAME PAGE -->
+      <div id="page-game" class="page">
+        <div class="game-hud" id="game-hud" style="display:none;">
+          <div class="hud-item">Turn: <strong id="hud-turn">0</strong></div>
+          <div class="hud-item">Troops: <strong id="hud-troops">0</strong></div>
+          <div class="hud-item">Territory: <strong id="hud-territory">0</strong></div>
+          <div class="hud-item">FPS: <strong id="hud-fps">0</strong></div>
+        </div>
+        <button class="exit-btn" id="btn-exit-game">Exit Game</button>
+      </div>
+
     </div>
 
     <script>
@@ -482,30 +478,6 @@
         s.style.setProperty('--max-o', (0.6 + Math.random() * 0.4).toString());
         s.style.animationDelay = Math.random() * 5 + 's';
         sf.appendChild(s);
-      }
-
-      // SPA Router
-      function showPage(pageId) {
-        document.querySelectorAll('.page').forEach(function(p) { p.style.display = 'none'; });
-        document.getElementById(pageId).style.display = '';
-        window.scrollTo(0, 0);
-      }
-
-      // Card selection helper
-      function selectCard(groupId, card) {
-        var group = document.getElementById(groupId);
-        group.querySelectorAll('.sp-card').forEach(function(c) { c.classList.remove('selected'); });
-        card.classList.add('selected');
-      }
-
-      // Toast notification
-      var toastTimer = null;
-      function showToast(message) {
-        var el = document.getElementById('toast');
-        el.textContent = message;
-        el.classList.add('show');
-        if (toastTimer) clearTimeout(toastTimer);
-        toastTimer = setTimeout(function() { el.classList.remove('show'); }, 2000);
       }
     </script>
   </body>

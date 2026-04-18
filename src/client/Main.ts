@@ -346,9 +346,11 @@ function startSingleplayerGame(): void {
   };
   window.addEventListener("resize", onResize);
 
-  // Show HUD
+  // Show HUD and exit button
   const hud = document.getElementById("game-hud");
   if (hud) hud.style.display = "flex";
+  const exitBtn = document.getElementById("btn-exit-game");
+  if (exitBtn) exitBtn.style.display = "block";
 
   // Game loop: process turns at the configured interval
   let turnCount = 0;
@@ -419,9 +421,11 @@ function exitGame(): void {
 
   activeRunner = null;
 
-  // Hide HUD
+  // Hide HUD and exit button
   const hud = document.getElementById("game-hud");
   if (hud) hud.style.display = "none";
+  const exitBtn = document.getElementById("btn-exit-game");
+  if (exitBtn) exitBtn.style.display = "none";
 
   // Remove game canvas
   const gamePage = document.getElementById("page-game");
@@ -520,6 +524,11 @@ function setupNavigation(): void {
   // Setup page: start game
   document.getElementById("btn-start-game")?.addEventListener("click", () => {
     startSingleplayerGame();
+  });
+
+  // Exit game button
+  document.getElementById("btn-exit-game")?.addEventListener("click", () => {
+    exitGame();
   });
 
   // ESC key exits the game

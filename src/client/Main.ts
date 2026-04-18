@@ -1,6 +1,10 @@
 /**
  * Client bootstrap for GalacticFront.io
- * SPA router + singleplayer game with direct Canvas 2D rendering
+ * SPA router + singleplayer game with self-contained, inline Canvas 2D rendering.
+ *
+ * This entry deliberately avoids the layered GameRenderer stack so the playable
+ * game path is minimal, inspectable, and cannot fail due to layer setup issues.
+ * Everything needed to draw the map lives in this file.
  */
 
 import { GameRunner } from "@core/GameRunner";
@@ -19,16 +23,9 @@ import {
   SetEmbargoExecution,
   ClearEmbargoExecution,
 } from "@core/execution/PlayerExecution";
-import { EmpireExecution } from "@core/execution/EmpireExecution";
-import {
-  createEmpiresForGame,
-  type EmpireCreationConfig,
-} from "@core/execution/empire/EmpireCreation";
-import { findSpawnTile } from "@core/execution/TribeSpawner";
 import { PseudoRandom } from "@core/PseudoRandom";
 import { TerrainType } from "@core/game/Types";
 import type { GameConfig } from "@core/Schemas";
-import type { GameImpl } from "@core/game/GameImpl";
 
 // ── Dark mode ────────────────────────────────────────────────────────────────
 
@@ -98,38 +95,37 @@ function closeModal(): void {
   if (overlay) overlay.classList.remove("visible");
 }
 
+// ── Transient toast ──────────────────────────────────────────────────────────
+
+function showToast(msg: string): void {
+  const t = document.createElement("div");
+  t.textContent = msg;
+  t.style.cssText =
+    "position:fixed;top:80px;left:50%;transform:translateX(-50%);" +
+    "background:rgba(10,10,18,0.9);backdrop-filter:blur(8px);" +
+    "border:1px solid rgba(34,211,238,0.4);border-radius:10px;" +
+    "padding:10px 18px;color:#6ee7b7;font-size:13px;font-weight:600;" +
+    "z-index:80;letter-spacing:0.3px;box-shadow:0 4px 24px rgba(0,0,0,0.4);" +
+    "pointer-events:none;";
+  document.body.appendChild(t);
+  setTimeout(() => {
+    t.style.transition = "opacity 0.4s";
+    t.style.opacity = "0";
+    setTimeout(() => t.remove(), 400);
+  }, 2200);
+}
+
 // ── Setup state ──────────────────────────────────────────────────────────────
 
 let selectedDifficulty = "Medium";
 let selectedMapSize = "arm";
+let selectedAiCount = 5;
 
 const MAP_SIZES: Record<string, { width: number; height: number }> = {
   sector: { width: 80, height: 80 },
   arm: { width: 150, height: 150 },
   galaxy: { width: 300, height: 300 },
 };
-
-// ── Card selection ───────────────────────────────────────────────────────────
-
-function selectCard(
-  group: string,
-  value: string,
-  element: HTMLElement,
-): void {
-  const grid = element.closest(".option-grid");
-  if (grid) {
-    for (const card of grid.querySelectorAll(".option-card")) {
-      card.classList.remove("selected");
-    }
-  }
-  element.classList.add("selected");
-
-  if (group === "difficulty") {
-    selectedDifficulty = value;
-  } else if (group === "mapsize") {
-    selectedMapSize = value;
-  }
-}
 
 // ── Option grid setup ────────────────────────────────────────────────────────
 
@@ -153,29 +149,73 @@ function setupOptionGrid(
   });
 }
 
-// ── Player colors ────────────────────────────────────────────────────────────
+// Legacy exposed-on-window helper for any inline markup that still uses it.
+function selectCard(
+  group: string,
+  value: string,
+  element: HTMLElement,
+): void {
+  const grid = element.closest(".option-grid");
+  if (grid) {
+    for (const card of grid.querySelectorAll(".option-card")) {
+      card.classList.remove("selected");
+    }
+  }
+  element.classList.add("selected");
 
-const PLAYER_COLORS = [
-  "#3b82f6", // blue (player)
-  "#ef4444", // red
-  "#22c55e", // green
-  "#f59e0b", // amber
-  "#8b5cf6", // violet
-  "#06b6d4", // cyan
-  "#ec4899", // pink
-  "#f97316", // orange
-  "#14b8a6", // teal
-  "#a855f7", // purple
-  "#eab308", // yellow
-  "#64748b", // slate
-];
+  if (group === "difficulty") {
+    selectedDifficulty = value;
+  } else if (group === "mapsize") {
+    selectedMapSize = value;
+  }
+}
 
 // ── Game state ───────────────────────────────────────────────────────────────
 
-let running = false;
+let activeRunner: GameRunner | null = null;
 let gameLoopInterval: ReturnType<typeof setInterval> | null = null;
 let activeCanvas: HTMLCanvasElement | null = null;
 let animFrameId = 0;
+let gameCleanupFns: Array<() => void> = [];
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatNum(n: bigint): string {
+  const num = Number(n);
+  if (num >= 1e12) return (num / 1e12).toFixed(1) + "T";
+  if (num >= 1e9) return (num / 1e9).toFixed(1) + "B";
+  if (num >= 1e6) return (num / 1e6).toFixed(1) + "M";
+  if (num >= 1e3) return (num / 1e3).toFixed(1) + "K";
+  return String(n);
+}
+
+const AI_COLORS = [
+  "#ef4444", // red
+  "#f59e0b", // amber
+  "#10b981", // emerald
+  "#3b82f6", // blue
+  "#8b5cf6", // violet
+  "#ec4899", // pink
+  "#14b8a6", // teal
+  "#f97316", // orange
+  "#6366f1", // indigo
+  "#84cc16", // lime
+];
+
+const AI_NAMES = [
+  "Zyr'kathi Hive",
+  "Crystalline Concord",
+  "Vortani Dominion",
+  "Synth Collective",
+  "Pyrathi Warclans",
+  "Aetheri Nomads",
+  "Solar Federation",
+  "Martian Collective",
+  "Outer Rim Alliance",
+  "Centauri Republic",
+];
+
+const PLAYER_COLOR = "#22d3ee";
 
 // ── Start singleplayer game ──────────────────────────────────────────────────
 
@@ -188,19 +228,18 @@ function startSingleplayerGame(): void {
       gameID: `local_${Date.now()}` as GameConfig["gameID"],
       mapWidth: mapDims.width,
       mapHeight: mapDims.height,
-      maxPlayers: 12,
+      maxPlayers: selectedAiCount + 1,
       seed,
-      ticksPerTurn: 5,
-      turnIntervalMs: 150,
+      ticksPerTurn: 1,
+      turnIntervalMs: 100,
       gameMapType: "Standard",
       difficulty: selectedDifficulty,
     };
 
-    // Create GameRunner (creates GameImpl internally)
+    // ── Create runner and game ────────────────────────────────────────────
     const runner = new GameRunner(config);
     const game = runner.game;
 
-    // Create ExecutionManager and register executions
     const execManager = new ExecutionManager(game);
     execManager.registerAll([
       new SpawnExecution(),
@@ -216,414 +255,428 @@ function startSingleplayerGame(): void {
     ]);
     runner.setIntentHandler(execManager.createIntentHandler());
 
-    // RNG for spawning
+    // ── Spawn players ─────────────────────────────────────────────────────
     const spawnRng = new PseudoRandom(seed + "_spawn");
+    const totalTiles = config.mapWidth * config.mapHeight;
 
-    // Helper: check if a tile is valid for spawning
-    const isValidSpawn = (tile: number): boolean =>
-      game.map.isTraversable(tile) && !game.map.isOwned(tile);
-
-    // Spawn player
-    const playerTile = findSpawnTile(
-      config.mapWidth,
-      config.mapHeight,
-      isValidSpawn,
-      spawnRng,
-    );
-    const playerID = game.spawnPlayer("Commander", playerTile) as number;
-
-    // Spawn AI empires
-    const empireConfig: EmpireCreationConfig = {
-      empireMode: "default",
-      maxPlayers: config.maxPlayers,
-      isCompactMap: selectedMapSize === "sector",
+    const findValidTile = (): number => {
+      for (let attempts = 0; attempts < 500; attempts++) {
+        const tile = spawnRng.nextInt(0, totalTiles - 1);
+        if (game.map.isTraversable(tile) && !game.map.isOwned(tile)) {
+          return tile;
+        }
+      }
+      // Fallback linear scan
+      for (let t = 0; t < totalTiles; t++) {
+        if (game.map.isTraversable(t) && !game.map.isOwned(t)) return t;
+      }
+      return 0;
     };
 
-    const empireRng = new PseudoRandom(seed + "_empires");
-    const empires = createEmpiresForGame(empireConfig, empireRng);
-    const aiTickFns: Array<{ playerID: number; ai: EmpireExecution }> = [];
+    const playerTile = findValidTile();
+    const playerID = game.spawnPlayer("Commander", playerTile) as number;
 
-    for (const empire of empires) {
-      const aiTile = findSpawnTile(
-        config.mapWidth,
-        config.mapHeight,
-        isValidSpawn,
-        spawnRng,
-      );
-      if (aiTile === -1) continue;
-
-      const aiID = game.spawnPlayer(empire.definition.name, aiTile) as number;
-      const aiExec = new EmpireExecution(
-        empire.definition,
-        selectedDifficulty,
-        new PseudoRandom(seed + `_ai_${empire.definition.id}`),
-        50,
-      );
-      aiTickFns.push({ playerID: aiID, ai: aiExec });
+    const aiPlayers: number[] = [];
+    for (let i = 0; i < selectedAiCount; i++) {
+      const tile = findValidTile();
+      if (tile <= 0 && i > 0) continue;
+      const name = AI_NAMES[i % AI_NAMES.length] ?? `AI ${i + 1}`;
+      const aiID = game.spawnPlayer(name, tile) as number;
+      aiPlayers.push(aiID);
     }
 
-    // Build player color map
+    // ── Player color map ──────────────────────────────────────────────────
     const playerColors = new Map<number, string>();
-    const allPlayers = game.getPlayers();
-    for (let i = 0; i < allPlayers.length; i++) {
-      const p = allPlayers[i]!;
-      const empireMatch = empires.find((e) => e.definition.name === p.name);
-      if (empireMatch) {
-        playerColors.set(p.id, empireMatch.definition.flagColors.primary);
-      } else {
-        playerColors.set(p.id, PLAYER_COLORS[i % PLAYER_COLORS.length]!);
-      }
-    }
+    playerColors.set(playerID, PLAYER_COLOR);
+    aiPlayers.forEach((id, i) => {
+      playerColors.set(id, AI_COLORS[i % AI_COLORS.length]!);
+    });
 
-    function getPlayerColor(ownerID: number): string {
-      return playerColors.get(ownerID) ?? "#444";
-    }
-
-    // ── Create Canvas ──────────────────────────────────────────────────────
+    // ── Set up canvas ─────────────────────────────────────────────────────
     const gamePage = document.getElementById("page-game")!;
-
-    // Clean up any previous game canvas
     const oldCanvas = gamePage.querySelector("canvas");
     if (oldCanvas) oldCanvas.remove();
 
     const canvas = document.createElement("canvas");
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    canvas.style.width = "100%";
-    canvas.style.height = "100vh";
-    canvas.style.display = "block";
+    canvas.style.cssText =
+      "position:fixed;top:0;left:0;width:100vw;height:100vh;" +
+      "display:block;cursor:grab;z-index:1;";
     gamePage.appendChild(canvas);
     activeCanvas = canvas;
 
     const ctx = canvas.getContext("2d")!;
 
-    // ── Camera state ───────────────────────────────────────────────────────
-    let camX = 0;
-    let camY = 0;
-    let zoom = 3;
-    const TILE = 6; // pixels per tile at 1x zoom
+    // ── Camera ────────────────────────────────────────────────────────────
+    const tileSize = 6;
+    let zoom = 2;
 
-    // Generate background stars (fixed positions)
-    const bgStars: Array<{
-      x: number;
-      y: number;
-      size: number;
-      alpha: number;
-    }> = [];
+    const playerPos = game.map.fromIndex(playerTile);
+    let camX = canvas.width / 2 - playerPos.x * tileSize * zoom;
+    let camY = canvas.height / 2 - playerPos.y * tileSize * zoom;
+
+    // ── Stars ─────────────────────────────────────────────────────────────
+    const stars: Array<{ x: number; y: number; size: number; alpha: number }> =
+      [];
     const starRng = new PseudoRandom(seed + "_stars");
-    for (let i = 0; i < 400; i++) {
-      bgStars.push({
+    for (let i = 0; i < 800; i++) {
+      stars.push({
         x: starRng.nextFloat(0, canvas.width),
         y: starRng.nextFloat(0, canvas.height),
-        size: starRng.chance(0.1) ? 2 : 1,
-        alpha: starRng.nextFloat(0.15, 0.5),
+        size: starRng.chance(0.12) ? 2 : 1,
+        alpha: starRng.nextFloat(0.2, 0.9),
       });
     }
 
-    // Center camera on player territory
-    const playerPos = game.map.fromIndex(playerTile);
-    camX = canvas.width / 2 - playerPos.x * TILE * zoom;
-    camY = canvas.height / 2 - playerPos.y * TILE * zoom;
+    // ── Mouse interaction ─────────────────────────────────────────────────
+    let dragging = false;
+    let lastX = 0;
+    let lastY = 0;
 
-    // ── Render function ────────────────────────────────────────────────────
-    running = true;
-    let turnCount = 0;
+    const onMouseDown = (e: MouseEvent): void => {
+      if (e.button !== 0) return;
+      dragging = true;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      canvas.style.cursor = "grabbing";
+    };
+    const onMouseUp = (): void => {
+      dragging = false;
+      canvas.style.cursor = "grab";
+    };
+    const onMouseMove = (e: MouseEvent): void => {
+      if (!dragging) return;
+      camX += e.clientX - lastX;
+      camY += e.clientY - lastY;
+      lastX = e.clientX;
+      lastY = e.clientY;
+    };
+    const onWheel = (e: WheelEvent): void => {
+      e.preventDefault();
+      const oldZoom = zoom;
+      const factor = e.deltaY > 0 ? 0.9 : 1.1;
+      zoom = Math.max(0.3, Math.min(8, zoom * factor));
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      camX = mx - ((mx - camX) * zoom) / oldZoom;
+      camY = my - ((my - camY) * zoom) / oldZoom;
+    };
 
-    function render(): void {
-      if (!running) return;
+    const screenToTile = (clientX: number, clientY: number): number | null => {
+      const ts = tileSize * zoom;
+      const wx = (clientX - camX) / ts;
+      const wy = (clientY - camY) / ts;
+      if (wx < 0 || wx >= config.mapWidth) return null;
+      if (wy < 0 || wy >= config.mapHeight) return null;
+      return Math.floor(wy) * config.mapWidth + Math.floor(wx);
+    };
+
+    const onContextMenu = (e: MouseEvent): void => {
+      e.preventDefault();
+      const tile = screenToTile(e.clientX, e.clientY);
+      if (tile === null) return;
+      const owner = game.map.getOwner(tile);
+      if (owner === 0 || owner === playerID) return;
+
+      const player = game.getPlayer(playerID);
+      if (!player || player.territory.size === 0) {
+        showToast("You have no territory to attack from!");
+        return;
+      }
+      const sourceTile = player.territory.values().next().value as number;
+      try {
+        const attack = game.startAttack(playerID, owner, sourceTile, 0.5);
+        if (attack) {
+          const target = game.getPlayer(owner);
+          showToast(`Attacking ${target?.name ?? "enemy"}!`);
+        } else {
+          showToast("Cannot start attack right now");
+        }
+      } catch (err) {
+        console.error("[GalacticFront] Attack failed:", err);
+      }
+    };
+
+    canvas.addEventListener("mousedown", onMouseDown);
+    canvas.addEventListener("mouseup", onMouseUp);
+    canvas.addEventListener("mouseleave", onMouseUp);
+    canvas.addEventListener("mousemove", onMouseMove);
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+    canvas.addEventListener("contextmenu", onContextMenu);
+
+    // ── Window resize ────────────────────────────────────────────────────
+    const onResize = (): void => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    window.addEventListener("resize", onResize);
+
+    gameCleanupFns = [
+      () => canvas.removeEventListener("mousedown", onMouseDown),
+      () => canvas.removeEventListener("mouseup", onMouseUp),
+      () => canvas.removeEventListener("mouseleave", onMouseUp),
+      () => canvas.removeEventListener("mousemove", onMouseMove),
+      () => canvas.removeEventListener("wheel", onWheel),
+      () => canvas.removeEventListener("contextmenu", onContextMenu),
+      () => window.removeEventListener("resize", onResize),
+    ];
+
+    // ── Leaderboard helper ───────────────────────────────────────────────
+    const drawLeaderboard = (
+      c: CanvasRenderingContext2D,
+      w: number,
+    ): void => {
+      const alive = game.getAlivePlayers();
+      alive.sort((a, b) => b.territoryCount - a.territoryCount);
+
+      const W = 220;
+      const pad = 10;
+      const lh = 20;
+      const H = alive.length * lh + pad * 2 + 26;
+      const x = w - W - 16;
+      const y = 16;
+
+      c.fillStyle = "rgba(10,10,18,0.85)";
+      c.fillRect(x, y, W, H);
+      c.strokeStyle = "rgba(255,255,255,0.08)";
+      c.lineWidth = 1;
+      c.strokeRect(x + 0.5, y + 0.5, W - 1, H - 1);
+
+      c.font = "bold 12px system-ui, sans-serif";
+      c.fillStyle = "#e0e0e0";
+      c.textAlign = "left";
+      c.fillText("LEADERBOARD", x + pad, y + pad + 10);
+
+      c.font = "12px system-ui, sans-serif";
+      let rowY = y + pad + 30;
+      for (const p of alive) {
+        c.fillStyle = playerColors.get(p.id) ?? "#888";
+        c.fillRect(x + pad, rowY - 9, 10, 10);
+
+        c.fillStyle = p.id === playerID ? "#6ee7b7" : "#d1d5db";
+        const nameLabel =
+          p.name.length > 18 ? p.name.slice(0, 17) + "…" : p.name;
+        c.fillText(nameLabel, x + pad + 16, rowY);
+
+        c.fillStyle = "#6b7280";
+        c.textAlign = "right";
+        c.fillText(String(p.territoryCount), x + W - pad, rowY);
+        c.textAlign = "left";
+        rowY += lh;
+      }
+    };
+
+    // ── Render loop ──────────────────────────────────────────────────────
+    let frameCount = 0;
+    let lastFpsTime = performance.now();
+
+    const render = (): void => {
+      if (activeRunner !== runner) return;
 
       const w = canvas.width;
       const h = canvas.height;
 
-      // Clear with space background
+      // Deep space background
       ctx.fillStyle = "#0a0a12";
       ctx.fillRect(0, 0, w, h);
 
-      // Draw background stars
-      for (const star of bgStars) {
+      // Stars (subtle parallax)
+      const parallax = 0.15;
+      for (const star of stars) {
+        let sx = (star.x + camX * parallax) % w;
+        let sy = (star.y + camY * parallax) % h;
+        if (sx < 0) sx += w;
+        if (sy < 0) sy += h;
         ctx.globalAlpha = star.alpha;
-        ctx.fillStyle = "white";
-        ctx.fillRect(star.x, star.y, star.size, star.size);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(sx, sy, star.size, star.size);
       }
       ctx.globalAlpha = 1;
 
-      ctx.save();
-      ctx.translate(camX, camY);
-      ctx.scale(zoom, zoom);
+      // Visible tile range
+      const ts = tileSize * zoom;
+      const startX = Math.max(0, Math.floor(-camX / ts));
+      const endX = Math.min(config.mapWidth, Math.ceil((w - camX) / ts) + 1);
+      const startY = Math.max(0, Math.floor(-camY / ts));
+      const endY = Math.min(config.mapHeight, Math.ceil((h - camY) / ts) + 1);
 
-      // Compute visible tile range for culling
-      const tileWorldSize = TILE;
-      const visMinX = Math.max(
-        0,
-        Math.floor(-camX / zoom / tileWorldSize) - 1,
-      );
-      const visMinY = Math.max(
-        0,
-        Math.floor(-camY / zoom / tileWorldSize) - 1,
-      );
-      const visMaxX = Math.min(
-        game.map.width - 1,
-        Math.ceil((-camX + w) / zoom / tileWorldSize) + 1,
-      );
-      const visMaxY = Math.min(
-        game.map.height - 1,
-        Math.ceil((-camY + h) / zoom / tileWorldSize) + 1,
-      );
+      // Terrain and territory
+      const drawSize = Math.max(1, Math.ceil(ts));
+      for (let ty = startY; ty < endY; ty++) {
+        for (let tx = startX; tx < endX; tx++) {
+          const idx = ty * config.mapWidth + tx;
+          const sx = tx * ts + camX;
+          const sy = ty * ts + camY;
+          const owner = game.map.getOwner(idx);
 
-      // Draw map tiles (only visible area)
-      for (let ty = visMinY; ty <= visMaxY; ty++) {
-        for (let tx = visMinX; tx <= visMaxX; tx++) {
-          const i = ty * game.map.width + tx;
-          const x = tx * TILE;
-          const y = ty * TILE;
+          if (owner !== 0) {
+            ctx.fillStyle = playerColors.get(owner) ?? "#888";
+            ctx.fillRect(sx, sy, drawSize, drawSize);
+            continue;
+          }
 
-          const owner = game.map.getOwner(i);
-          if (owner > 0) {
-            ctx.fillStyle = getPlayerColor(owner);
-            ctx.fillRect(x, y, TILE - 1, TILE - 1);
-          } else if (game.map.getTerrainType(i) === TerrainType.Planet) {
-            ctx.fillStyle = "#1a1a2e";
-            ctx.fillRect(x, y, TILE - 1, TILE - 1);
-          } else if (game.map.getTerrainType(i) === TerrainType.Asteroid) {
+          const terrain = game.map.getTerrainType(idx);
+          if (terrain === TerrainType.Planet) {
+            // Neutral planet dot
+            ctx.fillStyle = "#4a5568";
+            const d = Math.max(2, ts * 0.5);
+            ctx.fillRect(sx + (ts - d) / 2, sy + (ts - d) / 2, d, d);
+          } else if (terrain === TerrainType.Asteroid) {
             ctx.fillStyle = "#2a1a0a";
-            ctx.fillRect(x, y, TILE - 1, TILE - 1);
-          } else if (game.map.getTerrainType(i) === TerrainType.Nebula) {
-            ctx.fillStyle = "#0f0a1e";
-            ctx.fillRect(x, y, TILE - 1, TILE - 1);
+            ctx.fillRect(sx, sy, drawSize, drawSize);
+          } else if (terrain === TerrainType.Nebula) {
+            ctx.globalAlpha = 0.45;
+            ctx.fillStyle = "#1a0f2e";
+            ctx.fillRect(sx, sy, drawSize, drawSize);
+            ctx.globalAlpha = 1;
           }
         }
       }
 
-      // Draw player names on territory centers
-      if (zoom > 1) {
-        ctx.font = `${Math.max(3, Math.round(5 / Math.sqrt(zoom)))}px sans-serif`;
-        ctx.textAlign = "center";
-        for (const player of game.getAlivePlayers()) {
-          if (player.territoryCount < 5) continue;
-          const tiles = Array.from(player.territory);
-          const cx =
-            tiles.reduce((s, t) => s + (t % game.map.width), 0) /
-            tiles.length;
-          const cy =
-            tiles.reduce(
-              (s, t) => s + Math.floor(t / game.map.width),
-              0,
-            ) / tiles.length;
-          ctx.fillStyle = "rgba(255,255,255,0.8)";
-          ctx.fillText(
-            player.name,
-            cx * TILE + TILE / 2,
-            cy * TILE + TILE / 2,
-          );
-        }
+      // Highlight player capital
+      const player = game.getPlayer(playerID);
+      if (player && player.isAlive) {
+        const pt = player.capitalTile;
+        const px = (pt % config.mapWidth) * ts + camX;
+        const py = Math.floor(pt / config.mapWidth) * ts + camY;
+        ctx.strokeStyle = PLAYER_COLOR;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(px - 3, py - 3, ts + 6, ts + 6);
       }
 
-      ctx.restore();
+      // Leaderboard
+      drawLeaderboard(ctx, w);
 
-      // ── HUD overlay ────────────────────────────────────────────────────
-      drawHUD(ctx, game, playerID, playerColors, turnCount, w, h);
+      // FPS
+      frameCount++;
+      const now = performance.now();
+      if (now - lastFpsTime > 500) {
+        const fps = Math.round((frameCount * 1000) / (now - lastFpsTime));
+        frameCount = 0;
+        lastFpsTime = now;
+        const hudFps = document.getElementById("hud-fps");
+        if (hudFps) hudFps.textContent = String(fps);
+      }
 
       animFrameId = requestAnimationFrame(render);
-    }
-
-    // ── Mouse interaction ──────────────────────────────────────────────────
-    let isDragging = false;
-    let lastMouseX = 0;
-    let lastMouseY = 0;
-
-    canvas.addEventListener("mousedown", (e) => {
-      isDragging = true;
-      lastMouseX = e.clientX;
-      lastMouseY = e.clientY;
-    });
-
-    canvas.addEventListener("mousemove", (e) => {
-      if (!isDragging) return;
-      const dx = e.clientX - lastMouseX;
-      const dy = e.clientY - lastMouseY;
-      camX += dx;
-      camY += dy;
-      lastMouseX = e.clientX;
-      lastMouseY = e.clientY;
-    });
-
-    canvas.addEventListener("mouseup", () => {
-      isDragging = false;
-    });
-
-    canvas.addEventListener("mouseleave", () => {
-      isDragging = false;
-    });
-
-    canvas.addEventListener(
-      "wheel",
-      (e) => {
-        e.preventDefault();
-        const oldZoom = zoom;
-        const factor = e.deltaY > 0 ? 0.9 : 1.1;
-        zoom = Math.max(0.3, Math.min(20, zoom * factor));
-
-        // Zoom toward cursor
-        const rect = canvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
-        camX = mx - ((mx - camX) * zoom) / oldZoom;
-        camY = my - ((my - camY) * zoom) / oldZoom;
-      },
-      { passive: false },
-    );
-
-    // Handle window resize
-    const onResize = (): void => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      // Regenerate star positions for new dimensions
-      bgStars.length = 0;
-      const resizeRng = new PseudoRandom(seed + "_stars_resize");
-      for (let i = 0; i < 400; i++) {
-        bgStars.push({
-          x: resizeRng.nextFloat(0, canvas.width),
-          y: resizeRng.nextFloat(0, canvas.height),
-          size: resizeRng.chance(0.1) ? 2 : 1,
-          alpha: resizeRng.nextFloat(0.15, 0.5),
-        });
-      }
     };
-    window.addEventListener("resize", onResize);
 
-    // Show HUD and exit button
+    // ── Help overlay ──────────────────────────────────────────────────────
+    const helpDiv = document.createElement("div");
+    helpDiv.id = "game-help";
+    helpDiv.style.cssText =
+      "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);" +
+      "background:rgba(10,10,18,0.92);backdrop-filter:blur(10px);" +
+      "border:1px solid rgba(34,211,238,0.2);border-radius:12px;" +
+      "padding:14px 22px;color:#e0e0e0;font-size:13px;z-index:50;" +
+      "max-width:640px;text-align:center;" +
+      "box-shadow:0 8px 32px rgba(0,0,0,0.5);pointer-events:none;";
+    helpDiv.innerHTML =
+      '<div style="margin-bottom:8px;color:#22d3ee;font-weight:700;font-size:14px;">' +
+      "Welcome, Commander!</div>" +
+      '<div style="color:#9ca3af;line-height:1.7;">' +
+      '<strong style="color:#e0e0e0;">Drag</strong> to pan · ' +
+      '<strong style="color:#e0e0e0;">Scroll</strong> to zoom · ' +
+      '<strong style="color:#e0e0e0;">Right-click</strong> enemy territory to attack · ' +
+      '<strong style="color:#e0e0e0;">ESC</strong> to exit' +
+      "</div>" +
+      '<div style="margin-top:8px;font-size:11px;color:#6b7280;">' +
+      'Your color is <span style="color:#22d3ee;font-weight:600;">cyan</span>. ' +
+      "Conquer the galaxy!</div>";
+    document.body.appendChild(helpDiv);
+    const helpTimeout = setTimeout(() => {
+      helpDiv.style.transition = "opacity 1s";
+      helpDiv.style.opacity = "0";
+      setTimeout(() => helpDiv.remove(), 1000);
+    }, 9000);
+    gameCleanupFns.push(() => {
+      clearTimeout(helpTimeout);
+      helpDiv.remove();
+    });
+
+    // ── Show HUD and exit button ─────────────────────────────────────────
     const hud = document.getElementById("game-hud");
     if (hud) hud.style.display = "flex";
     const exitBtn = document.getElementById("btn-exit-game");
     if (exitBtn) exitBtn.style.display = "block";
 
-    // Show objectives banner
-    const objectives = document.getElementById("game-objectives");
-    if (objectives) objectives.style.display = "block";
-
-    // Show tutorial overlay (auto-dismiss after 15s or on click)
-    const tutorial = document.getElementById("game-tutorial");
-    let tutorialTimeout: ReturnType<typeof setTimeout> | null = null;
-    if (tutorial) {
-      tutorial.style.display = "block";
-      const dismissBtn = document.getElementById("tutorial-dismiss");
-      const dismiss = (): void => {
-        tutorial.style.display = "none";
-        if (tutorialTimeout !== null) {
-          clearTimeout(tutorialTimeout);
-          tutorialTimeout = null;
-        }
-      };
-      if (dismissBtn) {
-        (dismissBtn as HTMLButtonElement).onclick = dismiss;
-      }
-      tutorialTimeout = setTimeout(dismiss, 15000);
-    }
-
-    // Show minimap + set up rendering
-    const minimap = document.getElementById("game-minimap");
-    if (minimap) minimap.style.display = "block";
-    const minimapCanvas = document.getElementById(
-      "minimap-canvas",
-    ) as HTMLCanvasElement | null;
-    let minimapCtx: CanvasRenderingContext2D | null = null;
-    if (minimapCanvas) {
-      // Match backing store to displayed size for crisp rendering
-      const mmRect = minimapCanvas.getBoundingClientRect();
-      minimapCanvas.width = Math.max(1, Math.floor(mmRect.width));
-      minimapCanvas.height = Math.max(1, Math.floor(mmRect.height));
-      minimapCtx = minimapCanvas.getContext("2d");
-    }
-
-    function drawMinimap(): void {
-      if (!minimapCtx || !minimapCanvas) return;
-      const mw = minimapCanvas.width;
-      const mh = minimapCanvas.height;
-      const gw = game.map.width;
-      const gh = game.map.height;
-      const sx = mw / gw;
-      const sy = mh / gh;
-
-      minimapCtx.fillStyle = "#05050a";
-      minimapCtx.fillRect(0, 0, mw, mh);
-
-      // Draw ownership as colored pixels (sample per-cell)
-      const cellW = Math.max(1, Math.ceil(sx));
-      const cellH = Math.max(1, Math.ceil(sy));
-      for (let ty = 0; ty < gh; ty++) {
-        for (let tx = 0; tx < gw; tx++) {
-          const idx = ty * gw + tx;
-          const owner = game.map.getOwner(idx);
-          if (owner > 0) {
-            minimapCtx.fillStyle = getPlayerColor(owner);
-            minimapCtx.fillRect(tx * sx, ty * sy, cellW, cellH);
-          }
-        }
-      }
-
-      // Draw viewport rectangle (what the main camera is showing)
-      const vx = (-camX / zoom / TILE) * sx;
-      const vy = (-camY / zoom / TILE) * sy;
-      const vw = ((canvas.width / zoom) / TILE) * sx;
-      const vh = ((canvas.height / zoom) / TILE) * sy;
-      minimapCtx.strokeStyle = "rgba(110,231,183,0.9)";
-      minimapCtx.lineWidth = 1;
-      minimapCtx.strokeRect(vx, vy, vw, vh);
-    }
-
     // ── Game tick loop ───────────────────────────────────────────────────
+    let turnCount = 0;
     gameLoopInterval = setInterval(() => {
       if (runner.isGameOver()) {
         if (gameLoopInterval !== null) {
           clearInterval(gameLoopInterval);
           gameLoopInterval = null;
         }
+        const winnerID = game.winnerID;
+        const winner = winnerID !== null ? game.getPlayer(winnerID) : null;
+        if (winner && winner.id === playerID) {
+          showToast("Victory! You conquered the galaxy.");
+        } else if (winner) {
+          showToast(`Defeat — ${winner.name} wins.`);
+        } else {
+          showToast("Game over.");
+        }
         return;
       }
 
-      // Tick AI empires
-      const currentTick = game.currentTick;
-      for (const entry of aiTickFns) {
-        const aiPlayer = game.getPlayer(entry.playerID);
-        if (aiPlayer && aiPlayer.isAlive) {
-          entry.ai.tick(game, entry.playerID, currentTick);
-        }
-      }
-
-      // Process turn
       runner.processTurn();
       turnCount++;
 
-      // Update HTML HUD elements
+      // Simple AI behavior — occasionally launch attacks
+      if (turnCount % 8 === 0) {
+        for (const aiID of aiPlayers) {
+          const ai = game.getPlayer(aiID);
+          if (!ai || !ai.isAlive) continue;
+          if (ai.troops < 50n) continue;
+          if (ai.territory.size === 0) continue;
+
+          const candidates = game
+            .getAlivePlayers()
+            .filter((p) => p.id !== aiID && !ai.isAlliedWith(p.id));
+          if (candidates.length === 0) continue;
+
+          const target =
+            candidates[Math.floor(Math.random() * candidates.length)]!;
+          const sourceTile = ai.territory.values().next().value as number;
+          try {
+            game.startAttack(aiID, target.id, sourceTile, 0.3);
+          } catch {
+            // ignore — attack limits, alliances, etc.
+          }
+        }
+      }
+
+      // Update HUD
       const player = game.getPlayer(playerID);
       const hudTurn = document.getElementById("hud-turn");
       const hudTroops = document.getElementById("hud-troops");
       const hudTerritory = document.getElementById("hud-territory");
-      const hudFps = document.getElementById("hud-fps");
 
       if (hudTurn) hudTurn.textContent = String(turnCount);
-      if (hudTroops && player)
-        hudTroops.textContent = String(player.troops);
-      if (hudTerritory && player)
-        hudTerritory.textContent = String(player.territoryCount);
-      if (hudFps) hudFps.textContent = "60";
-
-      // Update minimap each turn
-      drawMinimap();
+      if (hudTroops)
+        hudTroops.textContent = player ? formatNum(player.troops) : "0";
+      if (hudTerritory)
+        hudTerritory.textContent = player
+          ? String(player.territoryCount)
+          : "0";
     }, config.turnIntervalMs);
 
     // Start rendering
+    activeRunner = runner;
     render();
 
     // Switch to game page
     showPage("page-game");
 
     console.log(
-      `[GalacticFront] Game started: ${config.mapWidth}x${config.mapHeight}, ${allPlayers.length} players`,
+      `[GalacticFront] Game started: ${config.mapWidth}x${config.mapHeight}, ` +
+        `${aiPlayers.length + 1} players, difficulty=${selectedDifficulty}`,
     );
   } catch (err) {
     console.error("[GalacticFront] Failed to start game:", err);
-    // Show error on screen
     const gamePage = document.getElementById("page-game");
     if (gamePage) {
       const errDiv = document.createElement("div");
@@ -652,111 +705,84 @@ function startSingleplayerGame(): void {
   }
 }
 
-// ── HUD drawing ──────────────────────────────────────────────────────────────
-
-function drawHUD(
-  ctx: CanvasRenderingContext2D,
-  game: GameImpl,
-  playerID: number,
-  playerColors: Map<number, string>,
-  _turnCount: number,
-  w: number,
-  h: number,
-): void {
-  // Leaderboard / player list - draw on canvas top-right
-  const alivePlayers = game.getAlivePlayers();
-  alivePlayers.sort((a, b) => b.territoryCount - a.territoryCount);
-
-  const lbX = w - 200;
-  let lbY = 16;
-  const lineHeight = 18;
-  const padding = 10;
-  const lbHeight = alivePlayers.length * lineHeight + padding * 2 + 24;
-
-  ctx.fillStyle = "rgba(10,10,18,0.85)";
-  ctx.fillRect(lbX - padding, lbY - padding, 200, lbHeight);
-  ctx.strokeStyle = "rgba(255,255,255,0.08)";
-  ctx.strokeRect(lbX - padding, lbY - padding, 200, lbHeight);
-
-  ctx.font = "bold 13px sans-serif";
-  ctx.fillStyle = "#e0e0e0";
-  ctx.textAlign = "left";
-  ctx.fillText("Leaderboard", lbX, lbY + 12);
-  lbY += 24;
-
-  ctx.font = "12px sans-serif";
-  for (const p of alivePlayers) {
-    // Color swatch
-    ctx.fillStyle = playerColors.get(p.id) ?? "#888";
-    ctx.fillRect(lbX + 2, lbY + 3, 10, 10);
-
-    // Name + territory
-    ctx.fillStyle = p.id === playerID ? "#6ee7b7" : "#9ca3af";
-    ctx.fillText(`${p.name}: ${p.territoryCount}`, lbX + 16, lbY + 12);
-    lbY += lineHeight;
-  }
-
-  // Bottom center hint
-  const hint = "WASD or drag to pan | Scroll to zoom | ESC to exit";
-  ctx.font = "12px sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillStyle = "rgba(255,255,255,0.3)";
-  ctx.fillText(hint, w / 2, h - 16);
-}
-
 // ── Exit game ────────────────────────────────────────────────────────────────
 
 function exitGame(): void {
-  // Stop game tick loop
   if (gameLoopInterval !== null) {
     clearInterval(gameLoopInterval);
     gameLoopInterval = null;
   }
 
-  // Stop rendering
-  running = false;
+  activeRunner = null;
   if (animFrameId) {
     cancelAnimationFrame(animFrameId);
     animFrameId = 0;
   }
 
-  // Hide HUD and exit button
+  for (const fn of gameCleanupFns) {
+    try {
+      fn();
+    } catch {
+      // ignore
+    }
+  }
+  gameCleanupFns = [];
+
   const hud = document.getElementById("game-hud");
   if (hud) hud.style.display = "none";
   const exitBtn = document.getElementById("btn-exit-game");
   if (exitBtn) exitBtn.style.display = "none";
 
-  // Hide tutorial, objectives, minimap
-  const tutorial = document.getElementById("game-tutorial");
-  if (tutorial) tutorial.style.display = "none";
-  const objectives = document.getElementById("game-objectives");
-  if (objectives) objectives.style.display = "none";
-  const minimap = document.getElementById("game-minimap");
-  if (minimap) minimap.style.display = "none";
-
-  // Remove game canvas
   if (activeCanvas) {
     activeCanvas.remove();
     activeCanvas = null;
   }
 
-  // Navigate home
+  document.getElementById("game-help")?.remove();
+
   showPage("page-home");
+}
+
+// ── AI count selector ───────────────────────────────────────────────────────
+
+function setupAiCountSelector(): void {
+  const slider = document.getElementById(
+    "ai-count-slider",
+  ) as HTMLInputElement | null;
+  const valueEl = document.getElementById("ai-count-value");
+  const minusBtn = document.getElementById("btn-ai-minus");
+  const plusBtn = document.getElementById("btn-ai-plus");
+
+  const sync = (): void => {
+    if (valueEl) valueEl.textContent = String(selectedAiCount);
+    if (slider) slider.value = String(selectedAiCount);
+  };
+
+  const setCount = (n: number): void => {
+    selectedAiCount = Math.max(1, Math.min(10, Math.round(n)));
+    sync();
+  };
+
+  slider?.addEventListener("input", () => {
+    setCount(parseInt(slider.value, 10));
+  });
+  minusBtn?.addEventListener("click", () => setCount(selectedAiCount - 1));
+  plusBtn?.addEventListener("click", () => setCount(selectedAiCount + 1));
+
+  sync();
 }
 
 // ── Navigation wiring ────────────────────────────────────────────────────────
 
 function setupNavigation(): void {
-  // Logo -> home (exits game if running)
   document.getElementById("nav-logo")?.addEventListener("click", () => {
-    if (running) {
+    if (activeRunner) {
       exitGame();
     } else {
       showPage("page-home");
     }
   });
 
-  // Nav links
   document.getElementById("nav-play")?.addEventListener("click", () => {
     showPage("page-home");
   });
@@ -782,24 +808,20 @@ function setupNavigation(): void {
     );
   });
 
-  // Modal close
   document.getElementById("modal-wip-close")?.addEventListener("click", () => {
     closeModal();
   });
 
-  // Close modal on overlay click
   document.getElementById("modal-wip")?.addEventListener("click", (e) => {
     if (e.target === e.currentTarget) {
       closeModal();
     }
   });
 
-  // Play Now button
   document.getElementById("btn-play-now")?.addEventListener("click", () => {
     showPage("page-singleplayer");
   });
 
-  // Mode cards -> singleplayer setup
   const modeCards = document.querySelectorAll<HTMLElement>(".mode-card");
   for (const card of modeCards) {
     card.addEventListener("click", () => {
@@ -809,38 +831,36 @@ function setupNavigation(): void {
       } else {
         showModal(
           "Coming Soon",
-          `${card.querySelector("h3")?.textContent ?? "This mode"} is under construction. Singleplayer vs AI is available now!`,
+          `${
+            card.querySelector("h3")?.textContent ?? "This mode"
+          } is under construction. Singleplayer vs AI is available now!`,
         );
       }
     });
   }
 
-  // Setup page: back button
   document.getElementById("btn-setup-back")?.addEventListener("click", () => {
     showPage("page-home");
   });
 
-  // Setup page: option grids
   setupOptionGrid("difficulty-grid", "difficulty", (val) => {
     selectedDifficulty = val;
   });
   setupOptionGrid("mapsize-grid", "mapsize", (val) => {
     selectedMapSize = val;
   });
+  setupAiCountSelector();
 
-  // Setup page: start game
   document.getElementById("btn-start-game")?.addEventListener("click", () => {
     startSingleplayerGame();
   });
 
-  // Exit game button
   document.getElementById("btn-exit-game")?.addEventListener("click", () => {
     exitGame();
   });
 
-  // ESC key exits the game
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && running) {
+    if (e.key === "Escape" && activeRunner) {
       exitGame();
     }
   });
@@ -863,7 +883,6 @@ export function init(): void {
   console.log("[GalacticFront] Client initialized");
 }
 
-// Auto-init on module load
 if (typeof window !== "undefined") {
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);

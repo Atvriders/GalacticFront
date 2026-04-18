@@ -79,10 +79,16 @@ export class EmpireExecution implements TickAI {
       this.initialized = true;
     }
 
-    if (currentTick % this.interval !== 0) return;
-
     const player = game.getPlayer(playerID);
     if (!player || !player.isAlive) return;
+
+    // Territory expansion runs every tick (not gated by interval)
+    // so empires steadily grow toward each other
+    if (currentTick % 5 === 0) {
+      this.expandIntoClaimed(game, player);
+    }
+
+    if (currentTick % this.interval !== 0) return;
 
     const weights = this.definition.weights;
 
@@ -131,6 +137,34 @@ export class EmpireExecution implements TickAI {
     // Emoji behavior
     if (this.rng.chance(weights.diplomacy * 0.5)) {
       emojiTick(game, player, neighborIDs, this.rng);
+    }
+  }
+
+  /**
+   * Expand territory into adjacent unclaimed tiles.
+   * Costs a small amount of troops per tile claimed.
+   * This ensures AI empires grow over time and eventually border each other.
+   */
+  private expandIntoClaimed(game: GameImpl, player: PlayerImpl): void {
+    const troopCost = 2n;
+    const maxExpand = Math.max(1, Math.floor(player.territoryCount * 0.1));
+    let expanded = 0;
+
+    // Snapshot territory to avoid mutating the set while iterating
+    const currentTiles = [...player.territory];
+    for (const tile of currentTiles) {
+      if (expanded >= maxExpand) break;
+      if (player.troops <= troopCost * 5n) break; // Keep a minimum reserve
+
+      for (const n of game.map.getNeighbors4(tile)) {
+        if (expanded >= maxExpand) break;
+        if (!game.map.isTraversable(n)) continue;
+        if (game.map.isOwned(n)) continue;
+
+        player.troops -= troopCost;
+        game.claimTile(n, player.id);
+        expanded++;
+      }
     }
   }
 

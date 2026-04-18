@@ -265,54 +265,159 @@
       }
 
       /* ── Singleplayer Setup ──────────────────────────────────────────── */
-      #page-singleplayer { padding: 100px 24px 60px; }
+      #page-singleplayer {
+        padding: 120px 24px 80px !important;
+      }
+
       .setup-container {
-        max-width: 700px; width: 100%; text-align: center;
+        max-width: 780px !important;
+        width: 100% !important;
+        text-align: center !important;
+        position: relative;
       }
-      .setup-container h2 {
-        font-family: "Orbitron", sans-serif;
-        font-size: 36px; font-weight: 900; margin-bottom: 8px;
-        text-transform: uppercase; letter-spacing: 2px;
-        background: linear-gradient(135deg, #6ee7b7, #3b82f6, #a78bfa);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      }
-      .setup-container .subtitle {
-        color: #6b7280; font-size: 15px; margin-bottom: 40px;
-      }
-      .setup-section { margin-bottom: 32px; }
-      .setup-section h3 {
-        font-size: 14px; font-weight: 600; color: #9ca3af;
-        text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;
-      }
-      .option-grid {
-        display: grid; gap: 12px;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      }
-      .option-card {
-        background: rgba(255,255,255,0.03);
-        border: 2px solid rgba(255,255,255,0.08);
-        border-radius: 12px; padding: 20px 16px;
-        text-align: center; cursor: pointer;
-        transition: all 0.3s ease;
-      }
-      .option-card:hover {
-        background: rgba(255,255,255,0.06);
-        border-color: rgba(99,102,241,0.3);
-      }
-      .option-card.selected {
-        background: rgba(99,102,241,0.1);
-        border-color: #6366f1;
-        box-shadow: 0 0 20px rgba(99,102,241,0.2);
-      }
-      .option-card .opt-icon { font-size: 28px; margin-bottom: 8px; }
-      .option-card .opt-title {
-        font-family: "Orbitron", sans-serif;
-        font-size: 13px; font-weight: 700; color: #f3f4f6;
-        text-transform: uppercase; letter-spacing: 1px;
-      }
-      .option-card .opt-desc {
+
+      /* Pre-header label */
+      .setup-container::before {
+        content: "▸ MISSION BRIEFING · 001";
+        display: block;
         font-family: "Rajdhani", sans-serif;
-        font-size: 13px; color: #6b7280; margin-top: 4px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 4px;
+        color: #22d3ee;
+        text-transform: uppercase;
+        margin-bottom: 16px;
+      }
+
+      .setup-container h2 {
+        font-family: "Orbitron", sans-serif !important;
+        font-size: 42px !important;
+        font-weight: 900 !important;
+        margin-bottom: 10px !important;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        background: linear-gradient(135deg, #6ee7b7 0%, #22d3ee 50%, #a78bfa 100%) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+      }
+
+      .setup-container .subtitle {
+        font-family: "Rajdhani", sans-serif !important;
+        color: #64748b !important;
+        font-size: 14px !important;
+        margin-bottom: 40px !important;
+        letter-spacing: 1px;
+      }
+
+      /* Section title with animated bar */
+      .setup-section {
+        margin-bottom: 36px;
+        position: relative;
+      }
+      .setup-section h3 {
+        font-family: "Rajdhani", sans-serif !important;
+        font-size: 11px !important;
+        font-weight: 700 !important;
+        color: #64748b !important;
+        text-transform: uppercase !important;
+        letter-spacing: 3px !important;
+        margin-bottom: 14px !important;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .setup-section h3::before {
+        content: "";
+        width: 24px;
+        height: 1px;
+        background: linear-gradient(90deg, #22d3ee, transparent);
+      }
+      .setup-section h3::after {
+        content: "";
+        width: 24px;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #22d3ee);
+      }
+
+      .option-grid {
+        display: grid !important;
+        gap: 10px !important;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+      }
+
+      /* Option cards — tactical brackets */
+      .option-card {
+        position: relative;
+        background: rgba(10, 15, 25, 0.7) !important;
+        border: 1px solid rgba(100, 116, 139, 0.25) !important;
+        border-radius: 0 !important;
+        padding: 20px 14px 18px !important;
+        text-align: center !important;
+        cursor: pointer !important;
+        transition: all 0.3s ease !important;
+        overflow: hidden;
+      }
+
+      .option-card::before,
+      .option-card::after {
+        content: "";
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        border: 2px solid rgba(100, 116, 139, 0.3);
+        transition: all 0.3s;
+      }
+      .option-card::before {
+        top: 4px; left: 4px;
+        border-right: none;
+        border-bottom: none;
+      }
+      .option-card::after {
+        bottom: 4px; right: 4px;
+        border-left: none;
+        border-top: none;
+      }
+
+      .option-card:hover {
+        background: rgba(34, 211, 238, 0.05) !important;
+        border-color: rgba(34, 211, 238, 0.4) !important;
+      }
+      .option-card:hover::before,
+      .option-card:hover::after {
+        border-color: #22d3ee;
+      }
+
+      .option-card.selected {
+        background: linear-gradient(145deg, rgba(34, 211, 238, 0.08), rgba(99, 102, 241, 0.05)) !important;
+        border-color: #22d3ee !important;
+        box-shadow: 0 0 0 1px #22d3ee, 0 0 24px rgba(34, 211, 238, 0.25) !important;
+      }
+      .option-card.selected::before,
+      .option-card.selected::after {
+        border-color: #22d3ee;
+        box-shadow: 0 0 8px #22d3ee;
+      }
+
+      .option-card .opt-icon {
+        font-size: 26px !important;
+        margin-bottom: 10px !important;
+      }
+
+      .option-card .opt-title {
+        font-family: "Orbitron", sans-serif !important;
+        font-size: 13px !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 2px !important;
+        color: #f1f5f9 !important;
+        margin-bottom: 4px;
+      }
+
+      .option-card .opt-desc {
+        font-family: "Rajdhani", sans-serif !important;
+        font-size: 11px !important;
+        color: #64748b !important;
+        letter-spacing: 0.5px;
       }
 
       /* AI count selector */
@@ -351,64 +456,81 @@
         accent-color: #6366f1;
       }
 
-      .setup-actions {
-        display: flex; gap: 16px; justify-content: center; margin-top: 40px;
-      }
-      .btn-back {
-        padding: 14px 32px; border-radius: 12px;
-        font-size: 16px; font-weight: 600; border: none; cursor: pointer;
-        background: rgba(255,255,255,0.06);
-        color: #9ca3af; transition: all 0.2s;
-      }
-      .btn-back:hover { background: rgba(255,255,255,0.1); color: #e0e0e0; }
-      .btn-start {
-        padding: 14px 40px; border-radius: 12px;
-        font-family: "Orbitron", sans-serif;
-        font-size: 14px; font-weight: 900;
-        text-transform: uppercase; letter-spacing: 3px;
-        border: none; cursor: pointer;
-        background: linear-gradient(135deg, #3b82f6, #6366f1);
-        color: white; transition: all 0.3s ease;
-        box-shadow: 0 4px 20px rgba(99,102,241,0.3);
-      }
-      .btn-start:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 32px rgba(99,102,241,0.5);
-      }
-      .btn-launch {
-        display: inline-flex; align-items: center; gap: 10px;
-        padding: 18px 56px;
-        font-family: "Orbitron", sans-serif;
-        font-size: 16px; font-weight: 900;
-        text-transform: uppercase; letter-spacing: 3px;
-        background: linear-gradient(135deg, #22d3ee, #3b82f6 50%, #6366f1);
-        box-shadow: 0 6px 24px rgba(99,102,241,0.45);
-        animation: launchPulse 2.4s ease-in-out infinite;
-      }
-      .btn-launch:hover {
-        transform: translateY(-3px) scale(1.02);
-        box-shadow: 0 12px 40px rgba(99,102,241,0.7);
-      }
-      @keyframes launchPulse {
-        0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.45),
-                               0 6px 24px rgba(99,102,241,0.45); }
-        50%      { box-shadow: 0 0 0 12px rgba(99,102,241,0.0),
-                               0 8px 32px rgba(99,102,241,0.6); }
-      }
+      /* Setup hint */
       .setup-hint {
-        display: inline-block; margin-left: 10px;
-        font-size: 11px; font-weight: 400; color: #6b7280;
-        text-transform: none; letter-spacing: 0;
+        font-family: "Rajdhani", sans-serif;
+        font-size: 11px;
+        color: #64748b;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        margin-left: 8px;
       }
-      .option-card { position: relative; }
-      .option-card:hover { transform: translateY(-2px); }
-      .option-card.selected { transform: translateY(-2px); }
-      .option-card.selected::after {
-        content: "\2713"; position: absolute; top: 6px; right: 8px;
-        width: 18px; height: 18px; border-radius: 50%;
-        background: #6366f1; color: white;
-        font-size: 11px; font-weight: 700;
-        display: flex; align-items: center; justify-content: center;
+
+      /* Setup actions area */
+      .setup-actions {
+        display: flex !important;
+        gap: 14px !important;
+        justify-content: center !important;
+        margin-top: 48px !important;
+      }
+
+      /* Back button */
+      .btn-back {
+        font-family: "Rajdhani", sans-serif !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 2px !important;
+        font-size: 12px !important;
+        padding: 14px 28px !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        border: 1px solid rgba(100, 116, 139, 0.3) !important;
+        color: #94a3b8 !important;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .btn-back:hover {
+        background: rgba(100, 116, 139, 0.1) !important;
+        border-color: #94a3b8 !important;
+        color: #e2e8f0 !important;
+      }
+
+      /* Launch button — dramatic with sweep effect */
+      .btn-start,
+      .btn-launch {
+        position: relative;
+        font-family: "Orbitron", sans-serif !important;
+        font-weight: 900 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 4px !important;
+        font-size: 13px !important;
+        padding: 16px 44px !important;
+        border-radius: 0 !important;
+        background: linear-gradient(135deg, #0891b2, #3b82f6) !important;
+        color: #f0fdff !important;
+        border: 1px solid #22d3ee !important;
+        cursor: pointer;
+        transition: all 0.3s;
+        overflow: hidden;
+        box-shadow: 0 0 20px rgba(34, 211, 238, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      }
+      .btn-start::before,
+      .btn-launch::before {
+        content: "";
+        position: absolute;
+        top: 0; left: -100%;
+        width: 100%; height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        transition: left 0.6s;
+      }
+      .btn-start:hover::before,
+      .btn-launch:hover::before {
+        left: 100%;
+      }
+      .btn-start:hover,
+      .btn-launch:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 32px rgba(34, 211, 238, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.2);
       }
 
       /* ── Game page ───────────────────────────────────────────────────── */
@@ -416,36 +538,157 @@
         padding: 0; justify-content: flex-start;
       }
       #page-game canvas { display: block; }
+      /* HUD container — positioned top-left */
       .game-hud {
-        position: fixed; top: 16px; left: 16px; z-index: 40;
-        display: flex; flex-direction: row; gap: 8px;
-        padding: 6px;
-        background: rgba(10,10,18,0.6);
-        border: 1px solid rgba(255,255,255,0.06);
-        border-radius: 12px;
-        backdrop-filter: blur(12px);
-      }
-      .hud-item {
-        background: rgba(20,20,32,0.7);
-        border: 1px solid rgba(255,255,255,0.05);
-        border-radius: 8px;
-        padding: 8px 14px;
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 40;
+        display: flex;
+        flex-direction: row;
+        gap: 10px;
         font-family: "Rajdhani", sans-serif;
-        font-size: 11px; font-weight: 500;
-        color: #9ca3af;
-        text-transform: uppercase;
-        letter-spacing: 1.5px;
-        display: flex; flex-direction: column; align-items: flex-start;
-        min-width: 72px;
       }
-      .hud-item strong {
-        font-family: "Space Mono", monospace;
-        color: #6ee7b7;
-        font-size: 18px;
+
+      /* Each stat item — tactical bracket style */
+      .hud-item {
+        position: relative;
+        background: rgba(5, 10, 20, 0.85);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(34, 211, 238, 0.3);
+        padding: 10px 16px 10px 14px;
+        min-width: 90px;
+      }
+
+      /* Corner bracket accents */
+      .hud-item::before,
+      .hud-item::after {
+        content: "";
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        border: 2px solid #22d3ee;
+      }
+      .hud-item::before {
+        top: -1px;
+        left: -1px;
+        border-right: none;
+        border-bottom: none;
+      }
+      .hud-item::after {
+        bottom: -1px;
+        right: -1px;
+        border-left: none;
+        border-top: none;
+      }
+
+      /* Label (TURN, TROOPS, etc.) */
+      .hud-item .hud-label,
+      .hud-item > div:first-child {
+        font-family: "Rajdhani", sans-serif;
+        font-size: 10px;
         font-weight: 700;
+        letter-spacing: 2px;
+        color: #64748b;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+      }
+
+      /* Value — big, monospace, glowing */
+      .hud-item .hud-value,
+      .hud-item > div:last-child {
+        font-family: "Space Mono", ui-monospace, monospace;
+        font-size: 22px;
+        font-weight: 700;
+        color: #6ee7b7;
         letter-spacing: -0.5px;
-        text-transform: none;
-        margin-top: 2px;
+        font-variant-numeric: tabular-nums;
+        text-shadow: 0 0 10px rgba(110, 231, 183, 0.5);
+        line-height: 1;
+      }
+
+      /* Sound/Exit buttons */
+      .game-hud button {
+        font-family: "Rajdhani", sans-serif !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1.5px !important;
+        font-size: 11px !important;
+        background: rgba(5, 10, 20, 0.85) !important;
+        border: 1px solid rgba(34, 211, 238, 0.3) !important;
+        color: #22d3ee !important;
+        padding: 10px 14px !important;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .game-hud button:hover {
+        background: rgba(34, 211, 238, 0.1) !important;
+        box-shadow: 0 0 12px rgba(34, 211, 238, 0.3);
+      }
+
+      /* Objectives banner — thin top-center readout */
+      #game-objectives {
+        position: fixed !important;
+        top: 20px !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        background: rgba(5, 10, 20, 0.9) !important;
+        backdrop-filter: blur(10px) !important;
+        border: 1px solid rgba(34, 211, 238, 0.3) !important;
+        padding: 8px 20px !important;
+        font-family: "Rajdhani", sans-serif !important;
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        letter-spacing: 2px !important;
+        text-transform: uppercase !important;
+        color: #9ca3af !important;
+        z-index: 39 !important;
+        border-radius: 0 !important;
+      }
+      #game-objectives strong {
+        color: #22d3ee !important;
+        font-weight: 700 !important;
+      }
+
+      /* Minimap — tactical display */
+      #game-minimap {
+        border: 1px solid rgba(34, 211, 238, 0.3) !important;
+        background: rgba(5, 10, 20, 0.9) !important;
+        border-radius: 0 !important;
+        padding: 10px !important;
+      }
+      #game-minimap > div:first-child {
+        font-family: "Rajdhani", sans-serif !important;
+        font-size: 10px !important;
+        letter-spacing: 2px !important;
+        color: #64748b !important;
+      }
+
+      /* Keyboard shortcuts panel */
+      #kbd-help {
+        font-family: "Rajdhani", sans-serif !important;
+        background: rgba(5, 10, 20, 0.9) !important;
+        border: 1px solid rgba(34, 211, 238, 0.2) !important;
+        border-radius: 0 !important;
+        padding: 10px 14px !important;
+        font-size: 11px !important;
+        letter-spacing: 1px !important;
+      }
+      #kbd-help strong {
+        font-family: "Space Mono", monospace !important;
+        background: rgba(34, 211, 238, 0.1);
+        padding: 1px 5px;
+        color: #22d3ee !important;
+      }
+
+      /* Game events panel */
+      #game-events {
+        font-family: "Space Mono", monospace !important;
+      }
+      #game-events > div {
+        border-radius: 0 !important;
+        font-size: 11px !important;
+        letter-spacing: 0.5px;
       }
       .exit-btn {
         position: fixed; top: 16px; right: 16px; z-index: 70;

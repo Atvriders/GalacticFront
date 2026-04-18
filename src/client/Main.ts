@@ -1063,6 +1063,32 @@ function startSingleplayerGame(): void {
 
       // Terrain and territory
       const drawSize = Math.max(1, Math.ceil(ts));
+
+      // Coordinate grid — faint lines every 10 tiles
+      if (zoom > 0.8) {
+        ctx.strokeStyle = "rgba(34, 211, 238, 0.05)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        const gridInterval = 10;
+        for (let x = 0; x <= config.mapWidth; x += gridInterval) {
+          const sx = x * ts + camX;
+          if (sx < -20 || sx > w + 20) continue;
+          ctx.moveTo(sx, Math.max(0, camY));
+          ctx.lineTo(sx, Math.min(h, config.mapHeight * ts + camY));
+        }
+        for (let y = 0; y <= config.mapHeight; y += gridInterval) {
+          const sy = y * ts + camY;
+          if (sy < -20 || sy > h + 20) continue;
+          ctx.moveTo(Math.max(0, camX), sy);
+          ctx.lineTo(Math.min(w, config.mapWidth * ts + camX), sy);
+        }
+        ctx.stroke();
+      }
+
+      // Pulse value (0-1) based on time
+      const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.002);
+
+      // Layer 1: Fill each owned tile with slight transparency + owner color
       for (let ty = startY; ty < endY; ty++) {
         for (let tx = startX; tx < endX; tx++) {
           const idx = ty * config.mapWidth + tx;
@@ -1071,27 +1097,51 @@ function startSingleplayerGame(): void {
           const owner = game.map.getOwner(idx);
 
           if (owner !== 0) {
-            ctx.fillStyle = playerColors.get(owner) ?? "#888";
+            const color = playerColors.get(owner) ?? "#888";
+            // Base fill with transparency — hologram feel
+            ctx.fillStyle = color;
+            ctx.globalAlpha = owner === playerID ? 0.55 + pulse * 0.15 : 0.45;
             ctx.fillRect(sx, sy, drawSize, drawSize);
+
+            // Bright center dot for all owned tiles — gives texture
+            ctx.globalAlpha = owner === playerID ? 0.8 : 0.6;
+            const d = Math.max(1, ts * 0.2);
+            ctx.fillStyle = color;
+            ctx.fillRect(sx + (ts - d) / 2, sy + (ts - d) / 2, d, d);
+
+            ctx.globalAlpha = 1;
             continue;
           }
 
           const terrain = game.map.getTerrainType(idx);
           if (terrain === TerrainType.Planet) {
-            // Neutral planet dot
-            ctx.fillStyle = "#4a5568";
-            const d = Math.max(2, ts * 0.5);
+            // Neutral planet — small pulsing dot
+            ctx.fillStyle = "#6b7280";
+            ctx.globalAlpha = 0.4 + pulse * 0.3;
+            const d = Math.max(2, ts * 0.4);
             ctx.fillRect(sx + (ts - d) / 2, sy + (ts - d) / 2, d, d);
+            ctx.globalAlpha = 1;
           } else if (terrain === TerrainType.Asteroid) {
-            ctx.fillStyle = "#2a1a0a";
+            ctx.fillStyle = "#1f1409";
             ctx.fillRect(sx, sy, drawSize, drawSize);
           } else if (terrain === TerrainType.Nebula) {
-            ctx.globalAlpha = 0.45;
-            ctx.fillStyle = "#1a0f2e";
+            ctx.fillStyle = "#160a2e";
+            ctx.globalAlpha = 0.35;
             ctx.fillRect(sx, sy, drawSize, drawSize);
             ctx.globalAlpha = 1;
           }
         }
+      }
+
+      // Scanline sweep — hologram feel
+      {
+        const scanY = ((performance.now() * 0.05) % (h + 200)) - 100;
+        const gradient = ctx.createLinearGradient(0, scanY - 30, 0, scanY + 30);
+        gradient.addColorStop(0, "rgba(34, 211, 238, 0)");
+        gradient.addColorStop(0.5, "rgba(34, 211, 238, 0.08)");
+        gradient.addColorStop(1, "rgba(34, 211, 238, 0)");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, scanY - 30, w, 60);
       }
 
       // Glowing border around player territory (draw only edges)

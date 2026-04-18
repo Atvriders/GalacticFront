@@ -145,6 +145,39 @@ function closeModal(): void {
   if (overlay) overlay.classList.remove("visible");
 }
 
+// ── Live events panel ────────────────────────────────────────────────────────
+
+function logEvent(
+  text: string,
+  type: "info" | "attack" | "capture" | "warning" = "info",
+): void {
+  const colors = {
+    info: "#9ca3af",
+    attack: "#ef4444",
+    capture: "#10b981",
+    warning: "#f59e0b",
+  };
+  const events = document.getElementById("game-events");
+  if (!events) return;
+
+  const div = document.createElement("div");
+  div.style.cssText = `background:rgba(10,10,18,0.9);backdrop-filter:blur(8px);border-left:3px solid ${colors[type]};border-radius:6px;padding:10px 14px;color:#e0e0e0;font-size:12px;animation:gfSlideIn 0.3s ease-out;line-height:1.4;`;
+  div.textContent = text;
+  events.insertBefore(div, events.firstChild);
+
+  // Keep only last 5 events
+  while (events.children.length > 5) events.removeChild(events.lastChild!);
+
+  setTimeout(() => {
+    div.style.transition = "opacity 0.6s, transform 0.6s";
+    div.style.opacity = "0";
+    div.style.transform = "translateX(30px)";
+    setTimeout(() => div.remove(), 600);
+  }, 6000);
+}
+
+(window as any).gf_logEvent = logEvent;
+
 // ── Transient toast ──────────────────────────────────────────────────────────
 
 function showToast(msg: string): void {
@@ -225,6 +258,7 @@ function selectCard(
 let activeRunner: GameRunner | null = null;
 let gameLoopInterval: ReturnType<typeof setInterval> | null = null;
 let activeCanvas: HTMLCanvasElement | null = null;
+let activeKeyHandler: ((e: KeyboardEvent) => void) | null = null;
 let animFrameId = 0;
 let gameCleanupFns: Array<() => void> = [];
 let isMuted = false;
@@ -490,6 +524,26 @@ function startSingleplayerGame(): void {
         didDrag = true;
       }
     };
+
+    // ── Hover preview tracking ────────────────────────────────────────────
+    let hoverTile = -1;
+    const onHoverMove = (e: MouseEvent): void => {
+      // Track hover separately from drag
+      const isDragging = dragging;
+      if (!isDragging) {
+        const wx = Math.floor((e.clientX - camX) / (tileSize * zoom));
+        const wy = Math.floor((e.clientY - camY) / (tileSize * zoom));
+        if (wx >= 0 && wx < config.mapWidth && wy >= 0 && wy < config.mapHeight) {
+          hoverTile = wy * config.mapWidth + wx;
+        } else {
+          hoverTile = -1;
+        }
+      }
+    };
+    const onHoverLeave = (): void => {
+      hoverTile = -1;
+    };
+
     const onWheel = (e: WheelEvent): void => {
       e.preventDefault();
       const oldZoom = zoom;
@@ -529,6 +583,7 @@ function startSingleplayerGame(): void {
         if (attack) {
           const target = game.getPlayer(owner);
           showToast(`Attacking ${target?.name ?? "enemy"}!`);
+          logEvent(`⚔ Attacking ${target?.name ?? "enemy"}!`, "attack");
           spawnFleet(sourceTile, tile, PLAYER_COLOR);
           sfxAttack();
         } else {
@@ -590,6 +645,7 @@ function startSingleplayerGame(): void {
           player.territory.add(tile);
         }
         sfxClaim();
+        logEvent(`✚ Claimed tile (${player.territory.size} total)`, "capture");
       } else {
         showToast("Right-click enemy territory to attack");
       }
@@ -599,6 +655,8 @@ function startSingleplayerGame(): void {
     canvas.addEventListener("mouseup", onMouseUp);
     canvas.addEventListener("mouseleave", onMouseUp);
     canvas.addEventListener("mousemove", onMouseMove);
+    canvas.addEventListener("mousemove", onHoverMove);
+    canvas.addEventListener("mouseleave", onHoverLeave);
     canvas.addEventListener("wheel", onWheel, { passive: false });
     canvas.addEventListener("contextmenu", onContextMenu);
     canvas.addEventListener("click", onClick);
@@ -615,11 +673,101 @@ function startSingleplayerGame(): void {
       () => canvas.removeEventListener("mouseup", onMouseUp),
       () => canvas.removeEventListener("mouseleave", onMouseUp),
       () => canvas.removeEventListener("mousemove", onMouseMove),
+      () => canvas.removeEventListener("mousemove", onHoverMove),
+      () => canvas.removeEventListener("mouseleave", onHoverLeave),
       () => canvas.removeEventListener("wheel", onWheel),
       () => canvas.removeEventListener("contextmenu", onContextMenu),
       () => canvas.removeEventListener("click", onClick),
       () => window.removeEventListener("resize", onResize),
     ];
+
+    // ── Keyboard shortcuts ───────────────────────────────────────────────
+    const keyHandler = (e: KeyboardEvent): void => {
+      const target = e.target as HTMLElement;
+      if (target && target.tagName === "INPUT") return;
+
+      const panAmount = 80;
+      switch (e.key.toLowerCase()) {
+        case "w":
+        case "arrowup":
+          camY += panAmount;
+          e.preventDefault();
+          break;
+        case "s":
+        case "arrowdown":
+          camY -= panAmount;
+          e.preventDefault();
+          break;
+        case "a":
+        case "arrowleft":
+          camX += panAmount;
+          e.preventDefault();
+          break;
+        case "d":
+        case "arrowright":
+          camX -= panAmount;
+          e.preventDefault();
+          break;
+        case "+":
+        case "=": {
+          const oldZ = zoom;
+          zoom = Math.min(8, zoom * 1.2);
+          const cx = canvas.width / 2, cy = canvas.height / 2;
+          const factor = zoom / oldZ;
+          camX = cx - (cx - camX) * factor;
+          camY = cy - (cy - camY) * factor;
+          break;
+        }
+        case "-":
+        case "_": {
+          const oldZ = zoom;
+          zoom = Math.max(0.3, zoom / 1.2);
+          const cx = canvas.width / 2, cy = canvas.height / 2;
+          const factor = zoom / oldZ;
+          camX = cx - (cx - camX) * factor;
+          camY = cy - (cy - camY) * factor;
+          break;
+        }
+        case "c": {
+          const player = game.getPlayer(playerID);
+          if (player && player.territory.size > 0) {
+            const t = Array.from(player.territory)[0] as number;
+            camX = canvas.width / 2 - (t % config.mapWidth) * tileSize * zoom;
+            camY = canvas.height / 2 - Math.floor(t / config.mapWidth) * tileSize * zoom;
+          }
+          break;
+        }
+        case "e": {
+          const player = game.getPlayer(playerID);
+          if (!player || player.troops < 10n) break;
+          for (const t of player.territory) {
+            const neighbors = [t - 1, t + 1, t - config.mapWidth, t + config.mapWidth];
+            const n = neighbors.find(nn => nn >= 0 && nn < config.mapWidth * config.mapHeight && game.map.isTraversable(nn) && !game.map.isOwned(nn));
+            if (n !== undefined) {
+              player.troops -= 10n;
+              if (typeof (game as any).claimTile === "function") (game as any).claimTile(n, playerID);
+              else { game.map.setOwner(n, playerID); player.territory.add(n); }
+              break;
+            }
+          }
+          break;
+        }
+      }
+    };
+    window.addEventListener("keydown", keyHandler);
+    activeKeyHandler = keyHandler;
+
+    // ── Keyboard help overlay ────────────────────────────────────────────
+    const kbdHelp = document.createElement("div");
+    kbdHelp.id = "kbd-help";
+    kbdHelp.style.cssText = "position:fixed;bottom:20px;left:20px;background:rgba(10,10,18,0.9);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px 14px;color:#9ca3af;font-size:11px;z-index:40;line-height:1.7;";
+    kbdHelp.innerHTML = `
+      <div style="color:#22d3ee;font-weight:600;font-size:12px;margin-bottom:4px;">⌨ Shortcuts</div>
+      <div><strong>WASD</strong> Pan · <strong>+/-</strong> Zoom</div>
+      <div><strong>C</strong> Center · <strong>E</strong> Expand</div>
+      <div><strong>ESC</strong> Exit</div>
+    `;
+    document.body.appendChild(kbdHelp);
 
     // ── Leaderboard helper ───────────────────────────────────────────────
     const drawLeaderboard = (
@@ -766,6 +914,59 @@ function startSingleplayerGame(): void {
         ctx.strokeStyle = "#fff";
         ctx.lineWidth = 2;
         ctx.strokeRect(px - 3, py - 3, ts + 6, ts + 6);
+      }
+
+      // Hover preview
+      if (hoverTile >= 0) {
+        const tx = hoverTile % config.mapWidth;
+        const ty = Math.floor(hoverTile / config.mapWidth);
+        const sx = tx * ts + camX;
+        const sy = ty * ts + camY;
+        const owner = game.map.getOwner(hoverTile);
+        const hoverPlayer = game.getPlayer(playerID);
+
+        if (owner === 0 && hoverPlayer) {
+          // Check if adjacent to player territory
+          const neighbors = [
+            hoverTile - 1,
+            hoverTile + 1,
+            hoverTile - config.mapWidth,
+            hoverTile + config.mapWidth,
+          ];
+          const adjacent = neighbors.some(
+            (n) =>
+              n >= 0 &&
+              n < config.mapWidth * config.mapHeight &&
+              hoverPlayer.territory.has(n),
+          );
+          if (adjacent) {
+            ctx.strokeStyle = "#10b981";
+            ctx.lineWidth = 2;
+            ctx.fillStyle = "rgba(16,185,129,0.25)";
+            ctx.fillRect(sx, sy, ts, ts);
+            ctx.strokeRect(sx, sy, ts, ts);
+            // Tooltip text
+            ctx.fillStyle = "#10b981";
+            ctx.font = "bold 12px system-ui";
+            ctx.fillText("CLICK TO CLAIM (10)", sx + ts + 4, sy + 12);
+          }
+        } else if (owner !== 0 && owner !== playerID) {
+          ctx.strokeStyle = "#ef4444";
+          ctx.lineWidth = 2;
+          ctx.fillStyle = "rgba(239,68,68,0.25)";
+          ctx.fillRect(sx, sy, ts, ts);
+          ctx.strokeRect(sx, sy, ts, ts);
+          const enemy = game.getPlayer(owner);
+          if (enemy) {
+            ctx.fillStyle = "#ef4444";
+            ctx.font = "bold 12px system-ui";
+            ctx.fillText(
+              `RIGHT-CLICK to ATTACK ${enemy.name}`,
+              sx + ts + 4,
+              sy + 12,
+            );
+          }
+        }
       }
 
       // Fleet particles — animate triangle "ships" flying between tiles
@@ -946,6 +1147,10 @@ function startSingleplayerGame(): void {
               const aiColor =
                 playerColors.get(aiID) ?? AI_COLORS[0]!;
               spawnFleet(sourceTile, targetTile, aiColor);
+              // Notify player when an AI specifically attacks them
+              if (target.id === playerID) {
+                logEvent(`⚠ ${ai.name} attacks you!`, "warning");
+              }
             }
           } catch {
             // ignore — attack limits, alliances, etc.
@@ -974,6 +1179,8 @@ function startSingleplayerGame(): void {
 
     // Switch to game page
     showPage("page-game");
+
+    logEvent("🌌 Your empire rises! Conquer the galaxy.", "info");
 
     console.log(
       `[GalacticFront] Game started: ${config.mapWidth}x${config.mapHeight}, ` +
@@ -1053,6 +1260,9 @@ function exitGame(): void {
   }
 
   document.getElementById("game-help")?.remove();
+
+  const events = document.getElementById("game-events");
+  if (events) events.innerHTML = "";
 
   showPage("page-home");
 }

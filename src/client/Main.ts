@@ -181,6 +181,12 @@ let isMuted = false;
 let isAutoExpand = false;
 let gameSpeed = 1; // 1 = 1x, 2 = 2x, 4 = 4x
 let isPaused = false;
+let gameRecorded = false;
+let activeGameSnapshot: (() => {
+  turns: number;
+  territory: number;
+  kills: number;
+}) | null = null;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -225,6 +231,7 @@ const PLAYER_COLOR = "#22d3ee";
 
 function startSingleplayerGame(): void {
   try {
+    gameRecorded = false;
     const mapDims = MAP_SIZES[selectedMapSize] ?? MAP_SIZES["arm"]!;
     const seed = `sp_${Date.now()}`;
 
@@ -346,8 +353,8 @@ function startSingleplayerGame(): void {
     const ctx = canvas.getContext("2d")!;
 
     // ── Camera ────────────────────────────────────────────────────────────
-    const tileSize = 10;
-    let zoom = 1.5;
+    const tileSize = 12;
+    let zoom = 3;
 
     const playerPos = game.map.fromIndex(playerTile);
     let camX = canvas.width / 2 - playerPos.x * tileSize * zoom;
@@ -674,13 +681,37 @@ function startSingleplayerGame(): void {
         }
       }
 
-      // Highlight player capital
+      // Glowing border around player territory (draw only edges)
       const player = game.getPlayer(playerID);
       if (player && player.isAlive) {
+        ctx.strokeStyle = PLAYER_COLOR;
+        ctx.lineWidth = 2;
+        ctx.shadowColor = PLAYER_COLOR;
+        ctx.shadowBlur = 8;
+        for (const tile of player.territory) {
+          const x = tile % config.mapWidth;
+          const y = Math.floor(tile / config.mapWidth);
+          if (x < startX || x >= endX || y < startY || y >= endY) continue;
+          const sx = x * ts + camX;
+          const sy = y * ts + camY;
+          const up = tile - config.mapWidth;
+          const down = tile + config.mapWidth;
+          const left = tile - 1;
+          const right = tile + 1;
+          ctx.beginPath();
+          if (!player.territory.has(up)) { ctx.moveTo(sx, sy); ctx.lineTo(sx + ts, sy); }
+          if (!player.territory.has(down)) { ctx.moveTo(sx, sy + ts); ctx.lineTo(sx + ts, sy + ts); }
+          if (!player.territory.has(left)) { ctx.moveTo(sx, sy); ctx.lineTo(sx, sy + ts); }
+          if (!player.territory.has(right)) { ctx.moveTo(sx + ts, sy); ctx.lineTo(sx + ts, sy + ts); }
+          ctx.stroke();
+        }
+        ctx.shadowBlur = 0;
+
+        // Capital marker
         const pt = player.capitalTile;
         const px = (pt % config.mapWidth) * ts + camX;
         const py = Math.floor(pt / config.mapWidth) * ts + camY;
-        ctx.strokeStyle = PLAYER_COLOR;
+        ctx.strokeStyle = "#fff";
         ctx.lineWidth = 2;
         ctx.strokeRect(px - 3, py - 3, ts + 6, ts + 6);
       }
@@ -776,6 +807,15 @@ function startSingleplayerGame(): void {
 
     // ── Game tick loop ───────────────────────────────────────────────────
     let turnCount = 0;
+    activeGameSnapshot = () => {
+      const playerRef = game.getPlayer(playerID);
+      const territoryCount = playerRef ? playerRef.territoryCount : 0;
+      const kills = aiPlayers.filter((id) => {
+        const p = game.getPlayer(id);
+        return !p || !p.isAlive;
+      }).length;
+      return { turns: turnCount, territory: territoryCount, kills };
+    };
     gameLoopInterval = setInterval(() => {
       if (runner.isGameOver()) {
         if (gameLoopInterval !== null) {
@@ -910,6 +950,16 @@ function startSingleplayerGame(): void {
 // ── Exit game ────────────────────────────────────────────────────────────────
 
 function exitGame(): void {
+  if (!gameRecorded && activeRunner !== null && activeGameSnapshot !== null) {
+    try {
+      trackGameResult("abandoned", activeGameSnapshot());
+    } catch {
+      // ignore — best-effort tracking
+    }
+    gameRecorded = true;
+  }
+  activeGameSnapshot = null;
+
   if (gameLoopInterval !== null) {
     clearInterval(gameLoopInterval);
     gameLoopInterval = null;
@@ -1094,9 +1144,11 @@ function setupNavigation(): void {
     );
   });
 
-  document.getElementById("nav-settings")?.addEventListener("click", (e) => {
-    e.preventDefault();
-    showSettingsModal();
+  document.getElementById("nav-settings")?.addEventListener("click", () => {
+    showModal(
+      "Settings",
+      "Game settings are coming soon. Sound, music, and keybind customization will be configurable here.",
+    );
   });
 
   document.getElementById("modal-wip-close")?.addEventListener("click", () => {

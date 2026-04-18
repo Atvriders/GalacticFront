@@ -124,48 +124,125 @@
         letter-spacing: 1px; margin-top: 4px;
       }
 
-      /* Game mode cards */
+      /* Game mode cards — tactical mission briefing */
       .modes {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 16px; max-width: 900px; width: 100%;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 14px; max-width: 900px; width: 100%;
         padding: 0 24px 60px;
       }
       .mode-card {
-        background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 16px; padding: 28px 24px;
-        text-align: center; cursor: pointer;
-        transition: all 0.3s ease;
+        position: relative;
+        background: linear-gradient(145deg, rgba(10, 15, 25, 0.8), rgba(5, 8, 15, 0.9));
+        border: 1px solid rgba(100, 116, 139, 0.25);
+        border-radius: 0;
+        padding: 28px 20px 24px;
+        text-align: left;
+        cursor: pointer;
+        transition: all 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+        overflow: hidden;
+        backdrop-filter: blur(8px);
+      }
+      /* Tactical corner brackets */
+      .mode-card::before,
+      .mode-card::after {
+        content: "";
+        position: absolute;
+        width: 14px;
+        height: 14px;
+        border: 2px solid currentColor;
+        opacity: 0.3;
+        transition: opacity 0.3s;
+        pointer-events: none;
+      }
+      .mode-card::before {
+        top: 8px; left: 8px;
+        border-right: none;
+        border-bottom: none;
+      }
+      .mode-card::after {
+        bottom: 8px; right: 8px;
+        border-left: none;
+        border-top: none;
       }
       .mode-card:hover {
-        background: rgba(255,255,255,0.06);
-        border-color: rgba(99,102,241,0.4);
         transform: translateY(-4px);
-        box-shadow: 0 8px 32px rgba(99,102,241,0.15);
+        border-color: currentColor;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 20px currentColor;
       }
-      .mode-card .icon { font-size: 36px; margin-bottom: 12px; }
+      .mode-card:hover::before,
+      .mode-card:hover::after {
+        opacity: 1;
+      }
+
+      /* Accent color per mode */
+      .mode-card[data-mode="ffa"] { color: #ef4444; }
+      .mode-card[data-mode="teams"] { color: #22d3ee; }
+      .mode-card[data-mode="ranked"] { color: #facc15; }
+      .mode-card[data-mode="ai"] { color: #a78bfa; }
+
+      /* Icon as geometric emblem */
+      .mode-card .icon {
+        font-size: 32px;
+        margin-bottom: 14px;
+        display: inline-block;
+        padding: 10px 12px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.06);
+        line-height: 1;
+      }
       .mode-card h3 {
         font-family: "Orbitron", sans-serif;
-        font-size: 14px; font-weight: 700; text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-bottom: 8px; color: #f3f4f6;
+        font-size: 15px !important;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin-bottom: 8px !important;
+        color: #f1f5f9 !important;
       }
       .mode-card p {
-        font-family: "Rajdhani", sans-serif;
-        font-weight: 400;
-        font-size: 14px; color: #6b7280; line-height: 1.5;
+        font-family: "Rajdhani", sans-serif !important;
+        font-size: 13px !important;
+        color: #94a3b8 !important;
+        line-height: 1.5 !important;
+        letter-spacing: 0.3px;
+        margin-bottom: 16px;
       }
+      /* Badge — STATUS line with animated dot */
       .mode-card .badge {
-        display: inline-block; margin-top: 12px;
-        padding: 4px 10px; border-radius: 99px;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 10px;
+        border-radius: 0;
         font-family: "Rajdhani", sans-serif;
-        font-size: 11px; font-weight: 700; text-transform: uppercase;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
         letter-spacing: 2px;
+        background: transparent;
+        border: 1px solid currentColor;
+        color: currentColor;
+        position: relative;
       }
-      .badge-live { background: rgba(34,197,94,0.15); color: #4ade80; }
-      .badge-ranked { background: rgba(234,179,8,0.15); color: #facc15; }
-      .badge-solo { background: rgba(99,102,241,0.15); color: #818cf8; }
+      .mode-card .badge::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+        box-shadow: 0 0 6px currentColor;
+        animation: livePulse 1.5s ease-in-out infinite;
+      }
+      /* Mode-specific badge colors override */
+      .mode-card[data-mode="ffa"] .badge,
+      .mode-card[data-mode="teams"] .badge { color: #22c55e; }
+      .mode-card[data-mode="ranked"] .badge { color: #facc15; }
+      .mode-card[data-mode="ai"] .badge { color: #a78bfa; }
+
+      .badge-live { color: #4ade80; }
+      .badge-ranked { color: #facc15; }
+      .badge-solo { color: #818cf8; }
 
       /* Play button */
       .play-btn {
@@ -230,22 +307,6 @@
       .page.active > * {
         animation: fadeIn 0.6s ease-out;
       }
-
-      /* Mode card glow */
-      .mode-card {
-        position: relative;
-        overflow: hidden;
-      }
-      .mode-card::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(99,102,241,0.2), transparent 40%);
-        opacity: 0;
-        transition: opacity 0.3s;
-        pointer-events: none;
-      }
-      .mode-card:hover::before { opacity: 1; }
 
       /* Nebula drift animation */
       @keyframes nebulaDrift {

@@ -661,6 +661,82 @@ function startSingleplayerGame(): void {
     canvas.addEventListener("contextmenu", onContextMenu);
     canvas.addEventListener("click", onClick);
 
+    // Touch support
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let lastTouchDist = 0;
+    let touchTapStart = 0;
+    let touchTapX = 0;
+    let touchTapY = 0;
+
+    const onTouchStart = (e: TouchEvent): void => {
+      e.preventDefault();
+      if (e.touches.length === 1) {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        touchTapStart = Date.now();
+        touchTapX = touchStartX;
+        touchTapY = touchStartY;
+      } else if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        lastTouchDist = Math.sqrt(dx * dx + dy * dy);
+      }
+    };
+
+    const onTouchMove = (e: TouchEvent): void => {
+      e.preventDefault();
+      if (e.touches.length === 1) {
+        const dx = e.touches[0].clientX - touchStartX;
+        const dy = e.touches[0].clientY - touchStartY;
+        camX += dx;
+        camY += dy;
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      } else if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (lastTouchDist > 0) {
+          const factor = dist / lastTouchDist;
+          const oldZ = zoom;
+          zoom = Math.max(0.3, Math.min(8, zoom * factor));
+          const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+          const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+          const f = zoom / oldZ;
+          camX = centerX - (centerX - camX) * f;
+          camY = centerY - (centerY - camY) * f;
+        }
+        lastTouchDist = dist;
+      }
+    };
+
+    const onTouchEnd = (e: TouchEvent): void => {
+      e.preventDefault();
+      // Quick tap = click (within 300ms and <10px movement)
+      if (touchTapStart > 0 && Date.now() - touchTapStart < 300) {
+        const moveDist = Math.hypot(
+          touchTapX - (e.changedTouches[0]?.clientX ?? touchTapX),
+          touchTapY - (e.changedTouches[0]?.clientY ?? touchTapY),
+        );
+        if (moveDist < 10) {
+          // Trigger a synthetic click to claim
+          const clickEvent = new MouseEvent("click", {
+            clientX: touchTapX,
+            clientY: touchTapY,
+            bubbles: true,
+          });
+          canvas.dispatchEvent(clickEvent);
+        }
+      }
+      touchTapStart = 0;
+      lastTouchDist = 0;
+    };
+
+    canvas.addEventListener("touchstart", onTouchStart, { passive: false });
+    canvas.addEventListener("touchmove", onTouchMove, { passive: false });
+    canvas.addEventListener("touchend", onTouchEnd, { passive: false });
+
     // ── Window resize ────────────────────────────────────────────────────
     const onResize = (): void => {
       canvas.width = window.innerWidth;
@@ -678,6 +754,9 @@ function startSingleplayerGame(): void {
       () => canvas.removeEventListener("wheel", onWheel),
       () => canvas.removeEventListener("contextmenu", onContextMenu),
       () => canvas.removeEventListener("click", onClick),
+      () => canvas.removeEventListener("touchstart", onTouchStart),
+      () => canvas.removeEventListener("touchmove", onTouchMove),
+      () => canvas.removeEventListener("touchend", onTouchEnd),
       () => window.removeEventListener("resize", onResize),
     ];
 

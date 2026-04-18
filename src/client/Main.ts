@@ -1242,7 +1242,9 @@ function startSingleplayerGame(): void {
           return !p || !p.isAlive;
         }).length;
 
+        let resultKind: "victory" | "defeat" = "defeat";
         if (winner && winner.id === playerID) {
+          resultKind = "victory";
           trackGameResult("victory", {
             turns: turnCount,
             territory: territoryCount,
@@ -1267,6 +1269,12 @@ function startSingleplayerGame(): void {
           showToast("Game over.");
           sfxDefeat();
         }
+
+        // Reward stardust for completing a game
+        const sd = parseInt(localStorage.getItem("gf_stardust") || "500");
+        const reward = resultKind === "victory" ? 50 : 10;
+        localStorage.setItem("gf_stardust", String(sd + reward));
+
         gameRecorded = true;
         return;
       }
@@ -1561,23 +1569,210 @@ function setupNavigation(): void {
     showPage("page-home");
   });
 
+  // ── LEADERBOARD (local stats) ────────────────────────────────────────────
   document.getElementById("nav-leaderboard")?.addEventListener("click", (e) => {
     e.preventDefault();
-    showStatsModal();
+    const games = JSON.parse(localStorage.getItem("gf_games") || "[]");
+    const wins = games.filter((g: any) => g.result === "victory").length;
+    const losses = games.filter((g: any) => g.result === "defeat").length;
+    const total = games.length;
+    const winRate = total > 0 ? Math.round((wins / total) * 100) : 0;
+    const totalTurns = games.reduce(
+      (s: number, g: any) => s + (g.turns || 0),
+      0,
+    );
+
+    const overlay = document.getElementById("modal-wip");
+    const box = overlay?.querySelector(".modal-box") as HTMLElement | null;
+    if (!overlay || !box) return;
+
+    box.style.maxWidth = "520px";
+    box.innerHTML = `
+      <h3 style="font-size:22px;font-weight:700;margin-bottom:16px;">📊 Your Stats</h3>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+        <div style="background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.3);padding:12px;border-radius:8px;text-align:center;">
+          <div style="font-size:11px;color:#22d3ee;text-transform:uppercase;letter-spacing:1px;">Games</div>
+          <div style="font-size:24px;font-weight:800;color:#22d3ee;">${total}</div>
+        </div>
+        <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);padding:12px;border-radius:8px;text-align:center;">
+          <div style="font-size:11px;color:#10b981;text-transform:uppercase;letter-spacing:1px;">Wins</div>
+          <div style="font-size:24px;font-weight:800;color:#10b981;">${wins}</div>
+        </div>
+        <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);padding:12px;border-radius:8px;text-align:center;">
+          <div style="font-size:11px;color:#f59e0b;text-transform:uppercase;letter-spacing:1px;">Win Rate</div>
+          <div style="font-size:24px;font-weight:800;color:#f59e0b;">${winRate}%</div>
+        </div>
+      </div>
+      <div style="background:rgba(255,255,255,0.04);padding:12px;border-radius:8px;margin-bottom:16px;">
+        <div style="display:flex;justify-content:space-between;color:#9ca3af;font-size:13px;margin-bottom:4px;">
+          <span>Total turns played</span>
+          <span style="color:#e0e0e0;font-weight:600;">${totalTurns.toLocaleString()}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;color:#9ca3af;font-size:13px;">
+          <span>Losses</span>
+          <span style="color:#e0e0e0;font-weight:600;">${losses}</span>
+        </div>
+      </div>
+      ${
+        total === 0
+          ? '<p style="color:#6b7280;font-size:14px;text-align:center;padding:20px 0;">Play your first game to see stats!</p>'
+          : `
+        <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Recent Games</div>
+        <div style="max-height:180px;overflow-y:auto;background:rgba(255,255,255,0.02);border-radius:6px;padding:4px;">
+          ${games
+            .slice()
+            .reverse()
+            .slice(0, 8)
+            .map(
+              (g: any) => `
+              <div style="display:flex;justify-content:space-between;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px;">
+                <span style="color:${g.result === "victory" ? "#10b981" : g.result === "defeat" ? "#ef4444" : "#9ca3af"};font-weight:600;text-transform:uppercase;">${g.result}</span>
+                <span style="color:#9ca3af;">${g.turns || 0} turns</span>
+                <span style="color:#6b7280;">${new Date(g.timestamp).toLocaleDateString()}</span>
+              </div>
+            `,
+            )
+            .join("")}
+        </div>
+      `
+      }
+      <button class="modal-close" id="modal-close-btn" style="margin-top:16px;">Close</button>
+    `;
+    overlay.classList.add("visible");
+    document
+      .getElementById("modal-close-btn")
+      ?.addEventListener("click", () => overlay.classList.remove("visible"));
   });
+
+  // ── STORE (cosmetics) ────────────────────────────────────────────────────
+  const STORE_THEMES = [
+    { id: "cyan", name: "Cyan Federation", color: "#22d3ee", cost: 0 },
+    { id: "magenta", name: "Magenta Dominion", color: "#ec4899", cost: 100 },
+    { id: "gold", name: "Golden Empire", color: "#fbbf24", cost: 100 },
+    { id: "emerald", name: "Emerald Concord", color: "#10b981", cost: 150 },
+    { id: "crimson", name: "Crimson Hive", color: "#ef4444", cost: 200 },
+    { id: "violet", name: "Violet Collective", color: "#8b5cf6", cost: 200 },
+  ];
 
   document.getElementById("nav-store")?.addEventListener("click", () => {
-    showModal(
-      "Store",
-      "The cosmetics store is under construction. Customize your empire soon!",
+    const sd = parseInt(localStorage.getItem("gf_stardust") || "500");
+    const owned: string[] = JSON.parse(
+      localStorage.getItem("gf_themes") || '["cyan"]',
     );
+    const active = localStorage.getItem("gf_active_theme") || "cyan";
+
+    const overlay = document.getElementById("modal-wip");
+    const box = overlay?.querySelector(".modal-box") as HTMLElement | null;
+    if (!overlay || !box) return;
+
+    box.style.maxWidth = "560px";
+    box.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <h3 style="font-size:22px;font-weight:700;margin:0;">🛒 Empire Store</h3>
+        <div style="background:rgba(251,191,36,0.1);border:1px solid rgba(251,191,36,0.3);padding:6px 14px;border-radius:99px;color:#fbbf24;font-weight:700;font-size:13px;">
+          ✨ ${sd}
+        </div>
+      </div>
+      <p style="color:#9ca3af;font-size:13px;margin-bottom:16px;">Choose your empire color. Earn stardust by winning games.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;max-height:340px;overflow-y:auto;">
+        ${STORE_THEMES.map((t) => {
+          const isOwned = owned.includes(t.id) || t.cost === 0;
+          const isActive = active === t.id;
+          return `
+            <div style="background:rgba(255,255,255,0.04);border:2px solid ${isActive ? t.color : "rgba(255,255,255,0.08)"};border-radius:10px;padding:12px;${isActive ? `box-shadow:0 0 14px ${t.color}60;` : ""}">
+              <div style="height:32px;border-radius:6px;background:${t.color};margin-bottom:8px;box-shadow:0 0 10px ${t.color}80;"></div>
+              <div style="font-weight:700;color:#e0e0e0;font-size:13px;margin-bottom:6px;">${t.name}</div>
+              ${
+                isOwned
+                  ? `
+                <button data-themeid="${t.id}" data-action="select" style="width:100%;padding:5px;background:${isActive ? "rgba(34,211,238,0.2)" : "rgba(255,255,255,0.06)"};border:1px solid ${isActive ? "#22d3ee" : "rgba(255,255,255,0.1)"};border-radius:6px;color:${isActive ? "#22d3ee" : "#9ca3af"};font-size:11px;font-weight:600;cursor:pointer;">
+                  ${isActive ? "✓ ACTIVE" : "SELECT"}
+                </button>
+              `
+                  : `
+                <button data-themeid="${t.id}" data-cost="${t.cost}" data-action="buy" style="width:100%;padding:5px;background:linear-gradient(135deg,#3b82f6,#6366f1);color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;${sd < t.cost ? "opacity:0.4;pointer-events:none;" : ""}">
+                  ✨ ${t.cost}
+                </button>
+              `
+              }
+            </div>
+          `;
+        }).join("")}
+      </div>
+      <button class="modal-close" id="modal-close-btn" style="margin-top:16px;">Close</button>
+    `;
+    overlay.classList.add("visible");
+    document
+      .getElementById("modal-close-btn")
+      ?.addEventListener("click", () => overlay.classList.remove("visible"));
+
+    box.querySelectorAll("[data-action]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const target = e.currentTarget as HTMLElement;
+        const themeId = target.getAttribute("data-themeid")!;
+        const action = target.getAttribute("data-action");
+        if (action === "buy") {
+          const cost = parseInt(target.getAttribute("data-cost")!);
+          const current = parseInt(
+            localStorage.getItem("gf_stardust") || "500",
+          );
+          if (current >= cost) {
+            localStorage.setItem("gf_stardust", String(current - cost));
+            const ownedList = JSON.parse(
+              localStorage.getItem("gf_themes") || '["cyan"]',
+            );
+            ownedList.push(themeId);
+            localStorage.setItem("gf_themes", JSON.stringify(ownedList));
+            localStorage.setItem("gf_active_theme", themeId);
+            (document.getElementById("nav-store") as HTMLElement).click();
+          }
+        } else if (action === "select") {
+          localStorage.setItem("gf_active_theme", themeId);
+          (document.getElementById("nav-store") as HTMLElement).click();
+        }
+      });
+    });
   });
 
+  // ── SETTINGS ─────────────────────────────────────────────────────────────
   document.getElementById("nav-settings")?.addEventListener("click", () => {
-    showModal(
-      "Settings",
-      "Game settings are coming soon. Sound, music, and keybind customization will be configurable here.",
-    );
+    const overlay = document.getElementById("modal-wip");
+    const box = overlay?.querySelector(".modal-box") as HTMLElement | null;
+    if (!overlay || !box) return;
+
+    const sound = localStorage.getItem("gf_sound") !== "false";
+    const name = localStorage.getItem("gf_name") || "Commander";
+
+    box.style.maxWidth = "440px";
+    box.innerHTML = `
+      <h3 style="font-size:22px;font-weight:700;margin-bottom:16px;">⚙ Settings</h3>
+      <div style="text-align:left;margin-bottom:16px;">
+        <label style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;color:#9ca3af;font-size:14px;cursor:pointer;">
+          <span>🔊 Sound Effects</span>
+          <input type="checkbox" id="set-sound" ${sound ? "checked" : ""} style="accent-color:#6366f1;width:18px;height:18px;">
+        </label>
+        <label style="display:block;color:#9ca3af;font-size:14px;margin-bottom:6px;">Commander Name</label>
+        <input type="text" id="set-name" value="${name}" maxlength="20" style="width:100%;padding:8px 10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#e0e0e0;font-size:13px;margin-bottom:14px;">
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button id="set-save" style="flex:1;padding:10px;background:linear-gradient(135deg,#3b82f6,#6366f1);color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">Save</button>
+        <button class="modal-close" id="modal-close-btn" style="flex:1;">Close</button>
+      </div>
+    `;
+    overlay.classList.add("visible");
+    document
+      .getElementById("modal-close-btn")
+      ?.addEventListener("click", () => overlay.classList.remove("visible"));
+    document.getElementById("set-save")?.addEventListener("click", () => {
+      const sc = (document.getElementById("set-sound") as HTMLInputElement)
+        .checked;
+      const nn =
+        (document.getElementById("set-name") as HTMLInputElement).value ||
+        "Commander";
+      localStorage.setItem("gf_sound", String(sc));
+      localStorage.setItem("gf_name", nn);
+      overlay.classList.remove("visible");
+    });
   });
 
   document.getElementById("modal-wip-close")?.addEventListener("click", () => {

@@ -27,6 +27,56 @@ import { PseudoRandom } from "@core/PseudoRandom";
 import { TerrainType } from "@core/game/Types";
 import type { GameConfig } from "@core/Schemas";
 
+// ── Sound system ─────────────────────────────────────────────────────────────
+let audioCtx: AudioContext | null = null;
+let soundEnabled = localStorage.getItem("gf_sound") !== "false";
+
+function getAudio(): AudioContext {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  }
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+
+function beep(freq: number, duration: number, type: OscillatorType = "sine", vol: number = 0.08): void {
+  if (!soundEnabled) return;
+  try {
+    const ctx = getAudio();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(vol, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + duration);
+  } catch {}
+}
+
+function sfxClaim(): void { beep(880, 0.08, "sine", 0.05); }
+function sfxAttack(): void { beep(220, 0.15, "sawtooth", 0.08); beep(180, 0.1, "square", 0.05); }
+function sfxHit(): void { beep(440, 0.05, "square", 0.06); }
+function sfxVictory(): void {
+  [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.25, "sine", 0.1), i * 150));
+}
+function sfxDefeat(): void {
+  [400, 300, 200].forEach((f, i) => setTimeout(() => beep(f, 0.4, "triangle", 0.1), i * 200));
+}
+
+export function toggleSound(): boolean {
+  soundEnabled = !soundEnabled;
+  localStorage.setItem("gf_sound", String(soundEnabled));
+  if (soundEnabled) beep(800, 0.1, "sine", 0.05);
+  return soundEnabled;
+}
+(window as any).gf_toggleSound = toggleSound;
+(window as any).gf_sfxClaim = sfxClaim;
+(window as any).gf_sfxAttack = sfxAttack;
+(window as any).gf_sfxVictory = sfxVictory;
+(window as any).gf_sfxDefeat = sfxDefeat;
+
 // ── Dark mode ────────────────────────────────────────────────────────────────
 
 const DARK_MODE_KEY = "gf_dark_mode";
@@ -480,6 +530,7 @@ function startSingleplayerGame(): void {
           const target = game.getPlayer(owner);
           showToast(`Attacking ${target?.name ?? "enemy"}!`);
           spawnFleet(sourceTile, tile, PLAYER_COLOR);
+          sfxAttack();
         } else {
           showToast("Cannot start attack right now");
         }
@@ -538,6 +589,7 @@ function startSingleplayerGame(): void {
           game.map.setOwner(tile, playerID);
           player.territory.add(tile);
         }
+        sfxClaim();
       } else {
         showToast("Right-click enemy territory to attack");
       }
@@ -805,6 +857,13 @@ function startSingleplayerGame(): void {
     const exitBtn = document.getElementById("btn-exit-game");
     if (exitBtn) exitBtn.style.display = "block";
 
+    const soundBtn = document.createElement("button");
+    soundBtn.textContent = soundEnabled ? "🔊" : "🔇";
+    soundBtn.title = "Toggle sound";
+    soundBtn.style.cssText = "padding:6px 10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:6px;color:#9ca3af;cursor:pointer;font-size:14px;margin-left:8px;";
+    soundBtn.onclick = () => { soundBtn.textContent = toggleSound() ? "🔊" : "🔇"; };
+    hud?.appendChild(soundBtn);
+
     // ── Game tick loop ───────────────────────────────────────────────────
     let turnCount = 0;
     activeGameSnapshot = () => {
@@ -838,6 +897,7 @@ function startSingleplayerGame(): void {
             kills,
           });
           showToast("Victory! You conquered the galaxy.");
+          sfxVictory();
         } else if (winner) {
           trackGameResult("defeat", {
             turns: turnCount,
@@ -845,6 +905,7 @@ function startSingleplayerGame(): void {
             kills,
           });
           showToast(`Defeat — ${winner.name} wins.`);
+          sfxDefeat();
         } else {
           trackGameResult("defeat", {
             turns: turnCount,
@@ -852,6 +913,7 @@ function startSingleplayerGame(): void {
             kills,
           });
           showToast("Game over.");
+          sfxDefeat();
         }
         gameRecorded = true;
         return;

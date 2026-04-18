@@ -510,15 +510,87 @@ function startSingleplayerGame(): void {
     let camY = canvas.height / 2 - playerPos.y * tileSize * zoom;
 
     // ── Stars ─────────────────────────────────────────────────────────────
-    const stars: Array<{ x: number; y: number; size: number; alpha: number }> =
-      [];
+    // Star layers with different parallax depths
+    const stars: Array<{
+      x: number;
+      y: number;
+      size: number;
+      alpha: number;
+      color: string;
+      depth: number;
+      twinkleOffset: number;
+    }> = [];
     const starRng = new PseudoRandom(seed + "_stars");
-    for (let i = 0; i < 800; i++) {
+
+    // Dust stars (far, slow parallax)
+    for (let i = 0; i < 600; i++) {
       stars.push({
-        x: starRng.nextFloat(0, canvas.width),
-        y: starRng.nextFloat(0, canvas.height),
-        size: starRng.chance(0.12) ? 2 : 1,
-        alpha: starRng.nextFloat(0.2, 0.9),
+        x: starRng.nextFloat(-canvas.width, canvas.width * 2),
+        y: starRng.nextFloat(-canvas.height, canvas.height * 2),
+        size: 1,
+        alpha: starRng.nextFloat(0.1, 0.35),
+        color: "#ffffff",
+        depth: 0.1, // Very slow parallax
+        twinkleOffset: starRng.nextFloat(0, 6.28),
+      });
+    }
+
+    // Mid stars (medium parallax)
+    for (let i = 0; i < 200; i++) {
+      const midColors = ["#ffffff", "#f0f9ff", "#fef3c7", "#fecaca"];
+      stars.push({
+        x: starRng.nextFloat(-canvas.width, canvas.width * 2),
+        y: starRng.nextFloat(-canvas.height, canvas.height * 2),
+        size: starRng.chance(0.3) ? 2 : 1,
+        alpha: starRng.nextFloat(0.4, 0.7),
+        color: midColors[Math.floor(starRng.next() * midColors.length)]!,
+        depth: 0.3,
+        twinkleOffset: starRng.nextFloat(0, 6.28),
+      });
+    }
+
+    // Near stars (bright, most parallax)
+    for (let i = 0; i < 50; i++) {
+      const nearColors = ["#ffffff", "#fef08a", "#fca5a5", "#93c5fd"];
+      stars.push({
+        x: starRng.nextFloat(-canvas.width, canvas.width * 2),
+        y: starRng.nextFloat(-canvas.height, canvas.height * 2),
+        size: starRng.chance(0.5) ? 3 : 2,
+        alpha: starRng.nextFloat(0.7, 1),
+        color: nearColors[Math.floor(starRng.next() * nearColors.length)]!,
+        depth: 0.5,
+        twinkleOffset: starRng.nextFloat(0, 6.28),
+      });
+    }
+
+    // Nebula clouds (world-space)
+    const nebulae: Array<{
+      x: number;
+      y: number;
+      radius: number;
+      color: string;
+      alpha: number;
+    }> = [];
+    const nebColors = [
+      "rgba(139, 92, 246, {a})", // Purple
+      "rgba(59, 130, 246, {a})", // Blue
+      "rgba(14, 165, 233, {a})", // Cyan-blue
+      "rgba(236, 72, 153, {a})", // Pink
+      "rgba(251, 146, 60, {a})", // Orange
+    ];
+    for (let i = 0; i < 8; i++) {
+      nebulae.push({
+        x: starRng.nextFloat(
+          -config.mapWidth * tileSize * 0.2,
+          config.mapWidth * tileSize * 1.2,
+        ),
+        y: starRng.nextFloat(
+          -config.mapHeight * tileSize * 0.2,
+          config.mapHeight * tileSize * 1.2,
+        ),
+        radius: starRng.nextFloat(200, 500),
+        color: nebColors[Math.floor(starRng.next() * nebColors.length)]!,
+        alpha: starRng.nextFloat(0.08, 0.16),
       });
     }
 
@@ -1091,20 +1163,59 @@ function startSingleplayerGame(): void {
       const w = canvas.width;
       const h = canvas.height;
 
-      // Deep space background
-      ctx.fillStyle = "#0a0a12";
+      // === BACKGROUND LAYERS ===
+
+      // 1. Deep space base gradient
+      const bgGrad = ctx.createRadialGradient(
+        w / 2,
+        h / 2,
+        0,
+        w / 2,
+        h / 2,
+        Math.max(w, h),
+      );
+      bgGrad.addColorStop(0, "#0a0a18");
+      bgGrad.addColorStop(1, "#02020a");
+      ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, w, h);
 
-      // Stars (subtle parallax)
-      const parallax = 0.15;
+      // 2. Nebula clouds (world-space, affected by camera)
+      for (const neb of nebulae) {
+        const nx = neb.x * zoom + camX;
+        const ny = neb.y * zoom + camY;
+        const nr = neb.radius * zoom;
+        if (nx + nr < 0 || nx - nr > w) continue;
+        if (ny + nr < 0 || ny - nr > h) continue;
+
+        const grad = ctx.createRadialGradient(nx, ny, 0, nx, ny, nr);
+        grad.addColorStop(0, neb.color.replace("{a}", String(neb.alpha)));
+        grad.addColorStop(1, neb.color.replace("{a}", "0"));
+        ctx.fillStyle = grad;
+        ctx.fillRect(nx - nr, ny - nr, nr * 2, nr * 2);
+      }
+
+      // 3. Stars with parallax + twinkle
+      const time = performance.now() * 0.001;
       for (const star of stars) {
-        let sx = (star.x + camX * parallax) % w;
-        let sy = (star.y + camY * parallax) % h;
-        if (sx < 0) sx += w;
-        if (sy < 0) sy += h;
-        ctx.globalAlpha = star.alpha;
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(sx, sy, star.size, star.size);
+        // Parallax based on depth — stars move with camera at different rates
+        const sx = star.x + camX * star.depth;
+        const sy = star.y + camY * star.depth;
+        const wrappedX = ((sx % w) + w) % w;
+        const wrappedY = ((sy % h) + h) % h;
+
+        // Twinkle
+        const twinkle = 0.8 + 0.2 * Math.sin(time * 2 + star.twinkleOffset);
+
+        ctx.globalAlpha = star.alpha * twinkle;
+        ctx.fillStyle = star.color;
+        ctx.fillRect(wrappedX, wrappedY, star.size, star.size);
+
+        // Bright stars have glow
+        if (star.size >= 2 && star.alpha > 0.5) {
+          ctx.globalAlpha = star.alpha * twinkle * 0.4;
+          ctx.fillRect(wrappedX - 1, wrappedY, star.size + 2, star.size);
+          ctx.fillRect(wrappedX, wrappedY - 1, star.size, star.size + 2);
+        }
       }
       ctx.globalAlpha = 1;
 

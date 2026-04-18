@@ -49,10 +49,24 @@
       nav {
         position: fixed; top: 0; left: 0; right: 0; z-index: 50;
         display: flex; align-items: center; justify-content: space-between;
-        padding: 16px 32px;
-        background: rgba(10, 10, 18, 0.8);
-        backdrop-filter: blur(12px);
-        border-bottom: 1px solid rgba(255,255,255,0.06);
+        padding: 14px 32px;
+        background: rgba(5, 10, 20, 0.85);
+        backdrop-filter: blur(16px) saturate(180%);
+        border-bottom: 1px solid rgba(34, 211, 238, 0.15);
+        /* Scanline overlay on nav */
+        background-image:
+          linear-gradient(rgba(34, 211, 238, 0.02), rgba(34, 211, 238, 0.02)),
+          repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 2px,
+            rgba(34, 211, 238, 0.02) 2px,
+            rgba(34, 211, 238, 0.02) 3px
+          );
+      }
+      @keyframes statusPulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.4; transform: scale(0.8); }
       }
       nav .logo {
         font-family: "Orbitron", sans-serif;
@@ -530,7 +544,10 @@
 
     <!-- Navigation -->
     <nav>
-      <div class="logo" id="nav-logo">GalacticFront.io</div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:8px;height:8px;border-radius:50%;background:#6ee7b7;box-shadow:0 0 8px #6ee7b7;animation:statusPulse 2s ease-in-out infinite;"></div>
+        <div class="logo" id="nav-logo">GalacticFront.io</div>
+      </div>
       <div class="links">
         <a id="nav-play" data-tooltip="Start a new game">Play</a>
         <a id="nav-leaderboard" data-tooltip="View leaderboard">Leaderboard</a>

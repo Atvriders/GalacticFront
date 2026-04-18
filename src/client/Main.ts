@@ -913,49 +913,103 @@ function startSingleplayerGame(): void {
     `;
     document.body.appendChild(kbdHelp);
 
-    // ── Leaderboard helper ───────────────────────────────────────────────
+    // ── Leaderboard helper (tactical command display) ────────────────────
     const drawLeaderboard = (
       c: CanvasRenderingContext2D,
       w: number,
     ): void => {
-      const alive = game.getAlivePlayers();
+      const alive = [...game.getAlivePlayers()];
       alive.sort((a, b) => b.territoryCount - a.territoryCount);
 
-      const W = 220;
-      const pad = 10;
-      const lh = 20;
-      const H = alive.length * lh + pad * 2 + 26;
-      const x = w - W - 16;
-      const y = 16;
+      const lbX = w - 240;
+      const lbY = 20;
+      const lbW = 220;
+      const topN = Math.min(alive.length, 8);
+      const lbH = 50 + topN * 26;
 
-      c.fillStyle = "rgba(10,10,18,0.85)";
-      c.fillRect(x, y, W, H);
-      c.strokeStyle = "rgba(255,255,255,0.08)";
+      // Dark panel with scanline border
+      c.fillStyle = "rgba(5, 10, 20, 0.9)";
+      c.fillRect(lbX, lbY, lbW, lbH);
+
+      // Cyan corner brackets
+      c.strokeStyle = "#22d3ee";
+      c.lineWidth = 2;
+      c.beginPath();
+      // Top-left
+      c.moveTo(lbX, lbY + 10);
+      c.lineTo(lbX, lbY);
+      c.lineTo(lbX + 10, lbY);
+      // Top-right
+      c.moveTo(lbX + lbW - 10, lbY);
+      c.lineTo(lbX + lbW, lbY);
+      c.lineTo(lbX + lbW, lbY + 10);
+      // Bottom-right
+      c.moveTo(lbX + lbW, lbY + lbH - 10);
+      c.lineTo(lbX + lbW, lbY + lbH);
+      c.lineTo(lbX + lbW - 10, lbY + lbH);
+      // Bottom-left
+      c.moveTo(lbX + 10, lbY + lbH);
+      c.lineTo(lbX, lbY + lbH);
+      c.lineTo(lbX, lbY + lbH - 10);
+      c.stroke();
+
+      // Border
+      c.strokeStyle = "rgba(34, 211, 238, 0.2)";
       c.lineWidth = 1;
-      c.strokeRect(x + 0.5, y + 0.5, W - 1, H - 1);
+      c.strokeRect(lbX + 0.5, lbY + 0.5, lbW - 1, lbH - 1);
 
-      c.font = "bold 12px system-ui, sans-serif";
-      c.fillStyle = "#e0e0e0";
+      // Title
+      c.font = 'bold 11px "Rajdhani", sans-serif';
+      c.fillStyle = "#22d3ee";
+      c.textBaseline = "top";
       c.textAlign = "left";
-      c.fillText("LEADERBOARD", x + pad, y + pad + 10);
+      c.fillText("COMMAND  ·  LEADERBOARD", lbX + 14, lbY + 12);
 
-      c.font = "12px system-ui, sans-serif";
-      let rowY = y + pad + 30;
-      for (const p of alive) {
-        c.fillStyle = playerColors.get(p.id) ?? "#888";
-        c.fillRect(x + pad, rowY - 9, 10, 10);
+      // Divider line
+      c.strokeStyle = "rgba(34, 211, 238, 0.2)";
+      c.beginPath();
+      c.moveTo(lbX + 14, lbY + 32);
+      c.lineTo(lbX + lbW - 14, lbY + 32);
+      c.stroke();
 
-        c.fillStyle = p.id === playerID ? "#6ee7b7" : "#d1d5db";
-        const nameLabel =
-          p.name.length > 18 ? p.name.slice(0, 17) + "…" : p.name;
-        c.fillText(nameLabel, x + pad + 16, rowY);
+      // Rows
+      c.font = '11px "Space Mono", monospace';
+      for (let i = 0; i < topN; i++) {
+        const p = alive[i]!;
+        const rowY = lbY + 44 + i * 26;
+        const color = playerColors.get(p.id) ?? "#666";
+        const isPlayer = p.id === playerID;
 
-        c.fillStyle = "#6b7280";
-        c.textAlign = "right";
-        c.fillText(String(p.territoryCount), x + W - pad, rowY);
+        // Rank
+        c.fillStyle = "#64748b";
         c.textAlign = "left";
-        rowY += lh;
+        c.fillText(String(i + 1).padStart(2, "0"), lbX + 10, rowY);
+
+        // Color swatch
+        c.fillStyle = color;
+        c.fillRect(lbX + 32, rowY + 1, 10, 10);
+
+        // Glow if player
+        if (isPlayer) {
+          c.shadowColor = color;
+          c.shadowBlur = 6;
+          c.fillRect(lbX + 32, rowY + 1, 10, 10);
+          c.shadowBlur = 0;
+        }
+
+        // Name
+        const name =
+          p.name.length > 14 ? p.name.slice(0, 12) + "..." : p.name;
+        c.fillStyle = isPlayer ? "#6ee7b7" : "#e0e0e0";
+        c.fillText(name, lbX + 48, rowY);
+
+        // Territory count (right-aligned)
+        c.fillStyle = isPlayer ? "#6ee7b7" : "#9ca3af";
+        c.textAlign = "right";
+        c.fillText(String(p.territoryCount), lbX + lbW - 14, rowY);
       }
+      c.textBaseline = "alphabetic";
+      c.textAlign = "left";
     };
 
     // ── Minimap ──────────────────────────────────────────────────────────

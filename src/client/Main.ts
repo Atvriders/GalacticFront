@@ -177,6 +177,10 @@ let gameLoopInterval: ReturnType<typeof setInterval> | null = null;
 let activeCanvas: HTMLCanvasElement | null = null;
 let animFrameId = 0;
 let gameCleanupFns: Array<() => void> = [];
+let isMuted = false;
+let isAutoExpand = false;
+let gameSpeed = 1; // 1 = 1x, 2 = 2x, 4 = 4x
+let isPaused = false;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -273,8 +277,39 @@ function startSingleplayerGame(): void {
       return 0;
     };
 
+    // Claim a (2*radius+1)x(2*radius+1) area around centerTile for playerID.
+    const claimArea = (
+      playerID: number,
+      centerTile: number,
+      radius: number,
+    ): void => {
+      const cx = centerTile % config.mapWidth;
+      const cy = Math.floor(centerTile / config.mapWidth);
+      const player = game.getPlayer(playerID);
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const x = cx + dx;
+          const y = cy + dy;
+          if (x < 0 || x >= config.mapWidth) continue;
+          if (y < 0 || y >= config.mapHeight) continue;
+          const tile = y * config.mapWidth + x;
+          if (!game.map.isTraversable(tile)) continue;
+          const owner = game.map.getOwner(tile);
+          if (owner !== 0 && owner !== playerID) continue;
+          if (typeof (game as any).claimTile === "function") {
+            (game as any).claimTile(tile, playerID);
+          } else {
+            game.map.setOwner(tile, playerID);
+            if (player) player.territory.add(tile);
+          }
+        }
+      }
+    };
+
     const playerTile = findValidTile();
     const playerID = game.spawnPlayer("Commander", playerTile) as number;
+    // Give the human commander a clearly visible 9x9 starting territory.
+    claimArea(playerID, playerTile, 4);
 
     const aiPlayers: number[] = [];
     for (let i = 0; i < selectedAiCount; i++) {
@@ -282,6 +317,8 @@ function startSingleplayerGame(): void {
       if (tile <= 0 && i > 0) continue;
       const name = AI_NAMES[i % AI_NAMES.length] ?? `AI ${i + 1}`;
       const aiID = game.spawnPlayer(name, tile) as number;
+      // Give each AI a matching 9x9 starting empire so they're visible too.
+      claimArea(aiID, tile, 4);
       aiPlayers.push(aiID);
     }
 
@@ -309,8 +346,8 @@ function startSingleplayerGame(): void {
     const ctx = canvas.getContext("2d")!;
 
     // ── Camera ────────────────────────────────────────────────────────────
-    const tileSize = 6;
-    let zoom = 2;
+    const tileSize = 10;
+    let zoom = 1.5;
 
     const playerPos = game.map.fromIndex(playerTile);
     let camX = canvas.width / 2 - playerPos.x * tileSize * zoom;
@@ -329,16 +366,55 @@ function startSingleplayerGame(): void {
       });
     }
 
+    // ── Fleet particles ───────────────────────────────────────────────────
+    const fleetParticles: Array<{
+      fromX: number;
+      fromY: number;
+      toX: number;
+      toY: number;
+      age: number;
+      maxAge: number;
+      color: string;
+    }> = [];
+
+    const spawnFleet = (
+      fromTile: number,
+      toTile: number,
+      color: string,
+    ): void => {
+      const fromX = (fromTile % config.mapWidth) + 0.5;
+      const fromY = Math.floor(fromTile / config.mapWidth) + 0.5;
+      const toX = (toTile % config.mapWidth) + 0.5;
+      const toY = Math.floor(toTile / config.mapWidth) + 0.5;
+      for (let i = 0; i < 5; i++) {
+        fleetParticles.push({
+          fromX: fromX + (Math.random() - 0.5) * 2,
+          fromY: fromY + (Math.random() - 0.5) * 2,
+          toX,
+          toY,
+          age: -i * 3,
+          maxAge: 60,
+          color,
+        });
+      }
+    };
+
     // ── Mouse interaction ─────────────────────────────────────────────────
     let dragging = false;
+    let didDrag = false;
     let lastX = 0;
     let lastY = 0;
+    let downX = 0;
+    let downY = 0;
 
     const onMouseDown = (e: MouseEvent): void => {
       if (e.button !== 0) return;
       dragging = true;
+      didDrag = false;
       lastX = e.clientX;
       lastY = e.clientY;
+      downX = e.clientX;
+      downY = e.clientY;
       canvas.style.cursor = "grabbing";
     };
     const onMouseUp = (): void => {
@@ -347,10 +423,15 @@ function startSingleplayerGame(): void {
     };
     const onMouseMove = (e: MouseEvent): void => {
       if (!dragging) return;
-      camX += e.clientX - lastX;
-      camY += e.clientY - lastY;
+      const dx = e.clientX - lastX;
+      const dy = e.clientY - lastY;
+      camX += dx;
+      camY += dy;
       lastX = e.clientX;
       lastY = e.clientY;
+      if (Math.abs(e.clientX - downX) > 4 || Math.abs(e.clientY - downY) > 4) {
+        didDrag = true;
+      }
     };
     const onWheel = (e: WheelEvent): void => {
       e.preventDefault();
@@ -391,11 +472,67 @@ function startSingleplayerGame(): void {
         if (attack) {
           const target = game.getPlayer(owner);
           showToast(`Attacking ${target?.name ?? "enemy"}!`);
+          spawnFleet(sourceTile, tile, PLAYER_COLOR);
         } else {
           showToast("Cannot start attack right now");
         }
       } catch (err) {
         console.error("[GalacticFront] Attack failed:", err);
+      }
+    };
+
+    // LEFT-click on an unowned tile adjacent to your territory to claim it.
+    const onClick = (e: MouseEvent): void => {
+      if (e.button !== 0) return;
+      // Ignore clicks that were really drags.
+      if (didDrag) {
+        didDrag = false;
+        return;
+      }
+      const tile = screenToTile(e.clientX, e.clientY);
+      if (tile === null) return;
+
+      const owner = game.map.getOwner(tile);
+      const player = game.getPlayer(playerID);
+      if (!player) return;
+
+      if (owner === playerID) return;
+
+      if (owner === 0) {
+        if (!game.map.isTraversable(tile)) {
+          showToast("Cannot claim asteroid fields");
+          return;
+        }
+        const W = config.mapWidth;
+        const H = config.mapHeight;
+        const tx = tile % W;
+        const ty = Math.floor(tile / W);
+        const neighbors: number[] = [];
+        if (tx > 0) neighbors.push(tile - 1);
+        if (tx < W - 1) neighbors.push(tile + 1);
+        if (ty > 0) neighbors.push(tile - W);
+        if (ty < H - 1) neighbors.push(tile + W);
+        const adjacent = neighbors.some(
+          (n) => game.map.getOwner(n) === playerID,
+        );
+
+        if (!adjacent) {
+          showToast("Click adjacent to your territory to expand");
+          return;
+        }
+        if (player.troops < 10n) {
+          showToast("Need 10 troops to claim tile");
+          return;
+        }
+        player.troops -= 10n;
+        if (typeof (game as any).claimTile === "function") {
+          (game as any).claimTile(tile, playerID);
+        } else {
+          game.map.setOwner(tile, playerID);
+          player.territory.add(tile);
+        }
+      } else {
+        showToast("Right-click enemy territory to attack");
       }
     };
 
@@ -405,6 +542,7 @@ function startSingleplayerGame(): void {
     canvas.addEventListener("mousemove", onMouseMove);
     canvas.addEventListener("wheel", onWheel, { passive: false });
     canvas.addEventListener("contextmenu", onContextMenu);
+    canvas.addEventListener("click", onClick);
 
     // ── Window resize ────────────────────────────────────────────────────
     const onResize = (): void => {
@@ -420,6 +558,7 @@ function startSingleplayerGame(): void {
       () => canvas.removeEventListener("mousemove", onMouseMove),
       () => canvas.removeEventListener("wheel", onWheel),
       () => canvas.removeEventListener("contextmenu", onContextMenu),
+      () => canvas.removeEventListener("click", onClick),
       () => window.removeEventListener("resize", onResize),
     ];
 
@@ -546,6 +685,36 @@ function startSingleplayerGame(): void {
         ctx.strokeRect(px - 3, py - 3, ts + 6, ts + 6);
       }
 
+      // Fleet particles — animate triangle "ships" flying between tiles
+      for (let i = fleetParticles.length - 1; i >= 0; i--) {
+        const f = fleetParticles[i]!;
+        f.age++;
+        if (f.age > f.maxAge) {
+          fleetParticles.splice(i, 1);
+          continue;
+        }
+        if (f.age < 0) continue;
+        const t = f.age / f.maxAge;
+        const x = (f.fromX + (f.toX - f.fromX) * t) * ts + camX;
+        const y = (f.fromY + (f.toY - f.fromY) * t) * ts + camY;
+        const angle = Math.atan2(f.toY - f.fromY, f.toX - f.fromX);
+
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        ctx.fillStyle = f.color;
+        ctx.shadowColor = f.color;
+        ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.moveTo(6, 0);
+        ctx.lineTo(-3, -3);
+        ctx.lineTo(-3, 3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.shadowBlur = 0;
+
       // Leaderboard
       drawLeaderboard(ctx, w);
 
@@ -577,14 +746,17 @@ function startSingleplayerGame(): void {
       '<div style="margin-bottom:8px;color:#22d3ee;font-weight:700;font-size:14px;">' +
       "Welcome, Commander!</div>" +
       '<div style="color:#9ca3af;line-height:1.7;">' +
-      '<strong style="color:#e0e0e0;">Drag</strong> to pan · ' +
-      '<strong style="color:#e0e0e0;">Scroll</strong> to zoom · ' +
-      '<strong style="color:#e0e0e0;">Right-click</strong> enemy territory to attack · ' +
-      '<strong style="color:#e0e0e0;">ESC</strong> to exit' +
+      '🖱 <strong style="color:#e0e0e0;">Drag</strong> map to pan · ' +
+      '🔍 <strong style="color:#e0e0e0;">Scroll</strong> to zoom<br>' +
+      '👈 <strong style="color:#6ee7b7;">LEFT-click</strong> adjacent to your territory to ' +
+      '<strong style="color:#6ee7b7;">EXPAND</strong> · ' +
+      '⚔️ <strong style="color:#fca5a5;">RIGHT-click</strong> enemy territory to ' +
+      '<strong style="color:#fca5a5;">ATTACK</strong><br>' +
+      '⎋ <strong style="color:#e0e0e0;">ESC</strong> to exit' +
       "</div>" +
       '<div style="margin-top:8px;font-size:11px;color:#6b7280;">' +
       'Your color is <span style="color:#22d3ee;font-weight:600;">cyan</span>. ' +
-      "Conquer the galaxy!</div>";
+      "Click adjacent tiles to expand your empire — Conquer the galaxy!</div>";
     document.body.appendChild(helpDiv);
     const helpTimeout = setTimeout(() => {
       helpDiv.style.transition = "opacity 1s";
@@ -612,13 +784,36 @@ function startSingleplayerGame(): void {
         }
         const winnerID = game.winnerID;
         const winner = winnerID !== null ? game.getPlayer(winnerID) : null;
+        const playerRef = game.getPlayer(playerID);
+        const territoryCount = playerRef ? playerRef.territoryCount : 0;
+        const kills = aiPlayers.filter((id) => {
+          const p = game.getPlayer(id);
+          return !p || !p.isAlive;
+        }).length;
+
         if (winner && winner.id === playerID) {
+          trackGameResult("victory", {
+            turns: turnCount,
+            territory: territoryCount,
+            kills,
+          });
           showToast("Victory! You conquered the galaxy.");
         } else if (winner) {
+          trackGameResult("defeat", {
+            turns: turnCount,
+            territory: territoryCount,
+            kills,
+          });
           showToast(`Defeat — ${winner.name} wins.`);
         } else {
+          trackGameResult("defeat", {
+            turns: turnCount,
+            territory: territoryCount,
+            kills,
+          });
           showToast("Game over.");
         }
+        gameRecorded = true;
         return;
       }
 
@@ -642,7 +837,14 @@ function startSingleplayerGame(): void {
             candidates[Math.floor(Math.random() * candidates.length)]!;
           const sourceTile = ai.territory.values().next().value as number;
           try {
-            game.startAttack(aiID, target.id, sourceTile, 0.3);
+            const attack = game.startAttack(aiID, target.id, sourceTile, 0.3);
+            if (attack && target.territory.size > 0) {
+              const targetTile = target.territory.values().next()
+                .value as number;
+              const aiColor =
+                playerColors.get(aiID) ?? AI_COLORS[0]!;
+              spawnFleet(sourceTile, targetTile, aiColor);
+            }
           } catch {
             // ignore — attack limits, alliances, etc.
           }
@@ -772,6 +974,99 @@ function setupAiCountSelector(): void {
   sync();
 }
 
+// ── Stats / local leaderboard ────────────────────────────────────────────────
+
+function trackGameResult(
+  result: "victory" | "defeat" | "abandoned",
+  stats: { turns: number; territory: number; kills: number },
+): void {
+  const games = JSON.parse(localStorage.getItem("gf_games") || "[]");
+  games.push({
+    timestamp: Date.now(),
+    result,
+    ...stats,
+  });
+  // Keep last 50 games
+  if (games.length > 50) games.shift();
+  localStorage.setItem("gf_games", JSON.stringify(games));
+}
+
+function showStatsModal(): void {
+  const overlay = document.getElementById("modal-wip");
+  const box = overlay?.querySelector(".modal-box");
+  if (!overlay || !box) return;
+
+  const games = JSON.parse(localStorage.getItem("gf_games") || "[]");
+  const wins = games.filter((g: any) => g.result === "victory").length;
+  const losses = games.filter((g: any) => g.result === "defeat").length;
+  const total = games.length;
+  const winRate = total > 0 ? Math.round((wins / total) * 100) : 0;
+  const totalTurns = games.reduce((s: number, g: any) => s + g.turns, 0);
+  const totalKills = games.reduce(
+    (s: number, g: any) => s + (g.kills || 0),
+    0,
+  );
+
+  (box as HTMLElement).style.maxWidth = "500px";
+  box.innerHTML = `
+    <h3>📊 Your Stats</h3>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0;">
+      <div style="background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.3);padding:12px;border-radius:8px;">
+        <div style="font-size:11px;color:#22d3ee;text-transform:uppercase;letter-spacing:1px;">Games</div>
+        <div style="font-size:24px;font-weight:800;color:#22d3ee;">${total}</div>
+      </div>
+      <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);padding:12px;border-radius:8px;">
+        <div style="font-size:11px;color:#10b981;text-transform:uppercase;letter-spacing:1px;">Wins</div>
+        <div style="font-size:24px;font-weight:800;color:#10b981;">${wins}</div>
+      </div>
+      <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);padding:12px;border-radius:8px;">
+        <div style="font-size:11px;color:#ef4444;text-transform:uppercase;letter-spacing:1px;">Win Rate</div>
+        <div style="font-size:24px;font-weight:800;color:#ef4444;">${winRate}%</div>
+      </div>
+    </div>
+    <div style="background:rgba(255,255,255,0.04);padding:12px;border-radius:8px;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;color:#9ca3af;font-size:13px;margin-bottom:4px;">
+        <span>Total turns played</span>
+        <span style="color:#e0e0e0;font-weight:600;">${totalTurns.toLocaleString()}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;color:#9ca3af;font-size:13px;">
+        <span>Empires defeated</span>
+        <span style="color:#e0e0e0;font-weight:600;">${totalKills}</span>
+      </div>
+    </div>
+    ${
+      total === 0
+        ? '<p style="color:#6b7280;font-size:14px;text-align:center;padding:20px 0;">Play a game to see your stats!</p>'
+        : `
+    <div style="max-height:200px;overflow-y:auto;background:rgba(255,255,255,0.02);border-radius:8px;padding:8px;">
+      ${games
+        .slice()
+        .reverse()
+        .slice(0, 10)
+        .map(
+          (g: any) => `
+        <div style="display:flex;justify-content:space-between;padding:8px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px;">
+          <span style="color:${g.result === "victory" ? "#10b981" : g.result === "defeat" ? "#ef4444" : "#9ca3af"};font-weight:600;text-transform:uppercase;">${g.result}</span>
+          <span style="color:#6b7280;">${new Date(g.timestamp).toLocaleDateString()}</span>
+          <span style="color:#9ca3af;">${g.turns} turns</span>
+        </div>
+      `,
+        )
+        .join("")}
+    </div>`
+    }
+    <button class="modal-close" id="modal-wip-close" style="margin-top:16px;">Close</button>
+  `;
+
+  // losses isn't displayed but is computed for potential future surfaces
+  void losses;
+
+  document
+    .getElementById("modal-wip-close")
+    ?.addEventListener("click", () => overlay.classList.remove("visible"));
+  overlay.classList.add("visible");
+}
+
 // ── Navigation wiring ────────────────────────────────────────────────────────
 
 function setupNavigation(): void {
@@ -787,11 +1082,9 @@ function setupNavigation(): void {
     showPage("page-home");
   });
 
-  document.getElementById("nav-leaderboard")?.addEventListener("click", () => {
-    showModal(
-      "Leaderboard",
-      "The leaderboard is under construction. Climb the ranks once multiplayer launches!",
-    );
+  document.getElementById("nav-leaderboard")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    showStatsModal();
   });
 
   document.getElementById("nav-store")?.addEventListener("click", () => {
@@ -801,11 +1094,9 @@ function setupNavigation(): void {
     );
   });
 
-  document.getElementById("nav-settings")?.addEventListener("click", () => {
-    showModal(
-      "Settings",
-      "Settings panel is under construction. Configuration options coming soon!",
-    );
+  document.getElementById("nav-settings")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    showSettingsModal();
   });
 
   document.getElementById("modal-wip-close")?.addEventListener("click", () => {

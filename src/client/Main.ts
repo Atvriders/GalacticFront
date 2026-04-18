@@ -27,6 +27,69 @@ import { PseudoRandom } from "@core/PseudoRandom";
 import { TerrainType } from "@core/game/Types";
 import type { GameConfig } from "@core/Schemas";
 
+// ── Achievement system ───────────────────────────────────────────────────────
+
+interface Achievement {
+  id: string;
+  icon: string;
+  name: string;
+  description: string;
+  reward: number;
+}
+
+const ACHIEVEMENTS: Achievement[] = [
+  { id: "first_game", icon: "🎮", name: "First Steps", description: "Play your first game", reward: 50 },
+  { id: "first_win", icon: "🏆", name: "First Victory", description: "Win your first game", reward: 100 },
+  { id: "expander", icon: "🌍", name: "Expander", description: "Own 100 territory tiles", reward: 50 },
+  { id: "conqueror", icon: "⚔", name: "Conqueror", description: "Defeat 3 enemies in one game", reward: 100 },
+  { id: "emperor", icon: "👑", name: "Galactic Emperor", description: "Win 5 games total", reward: 500 },
+  { id: "speedrun", icon: "⚡", name: "Speedrunner", description: "Win in under 200 turns", reward: 200 },
+  { id: "survivor", icon: "🛡", name: "Survivor", description: "Play 500+ turns in one game", reward: 100 },
+];
+
+function getUnlockedAchievements(): string[] {
+  return JSON.parse(localStorage.getItem("gf_achievements") || "[]");
+}
+
+function unlockAchievement(id: string): void {
+  const unlocked = getUnlockedAchievements();
+  if (unlocked.includes(id)) return;
+  const ach = ACHIEVEMENTS.find((a) => a.id === id);
+  if (!ach) return;
+
+  unlocked.push(id);
+  localStorage.setItem("gf_achievements", JSON.stringify(unlocked));
+
+  // Award stardust
+  const sd = parseInt(localStorage.getItem("gf_stardust") || "500");
+  localStorage.setItem("gf_stardust", String(sd + ach.reward));
+
+  // Show toast
+  showAchievementUnlock(ach);
+}
+
+function showAchievementUnlock(ach: Achievement): void {
+  const toast = document.createElement("div");
+  toast.style.cssText =
+    "position:fixed;top:90px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1f2937;padding:14px 24px;border-radius:12px;font-weight:700;z-index:1000;box-shadow:0 8px 40px rgba(251,191,36,0.5);max-width:420px;text-align:center;animation:gfSlideIn 0.4s ease-out;";
+  toast.innerHTML = `
+    <div style="font-size:11px;margin-bottom:2px;opacity:0.75;letter-spacing:1px;">ACHIEVEMENT UNLOCKED</div>
+    <div style="font-size:18px;line-height:1.3;">${ach.icon} ${ach.name}</div>
+    <div style="font-size:12px;font-weight:500;margin-top:4px;opacity:0.8;">${ach.description}</div>
+    <div style="font-size:13px;font-weight:700;margin-top:6px;color:#7c2d12;">+${ach.reward} Stardust ✨</div>
+  `;
+  document.body.appendChild(toast);
+  setTimeout(() => {
+    toast.style.transition = "opacity 0.6s, transform 0.6s";
+    toast.style.opacity = "0";
+    toast.style.transform = "translateX(-50%) translateY(-20px)";
+    setTimeout(() => toast.remove(), 600);
+  }, 4500);
+}
+
+(window as any).gf_unlockAchievement = unlockAchievement;
+(window as any).gf_achievements = ACHIEVEMENTS;
+
 // ── Sound system ─────────────────────────────────────────────────────────────
 let audioCtx: AudioContext | null = null;
 let soundEnabled = localStorage.getItem("gf_sound") !== "false";
@@ -316,6 +379,8 @@ const PLAYER_COLOR = "#22d3ee";
 function startSingleplayerGame(): void {
   try {
     gameRecorded = false;
+    // First game achievement
+    unlockAchievement("first_game");
     const mapDims = MAP_SIZES[selectedMapSize] ?? MAP_SIZES["arm"]!;
     const seed = `sp_${Date.now()}`;
 
@@ -1252,6 +1317,15 @@ function startSingleplayerGame(): void {
           });
           showToast("Victory! You conquered the galaxy.");
           sfxVictory();
+
+          // Victory-based achievements
+          unlockAchievement("first_win");
+          if (turnCount < 200) unlockAchievement("speedrun");
+
+          // Check total wins (note: current game not yet saved when counted, so +1)
+          const games = JSON.parse(localStorage.getItem("gf_games") || "[]");
+          const totalWins = games.filter((g: any) => g.result === "victory").length + 1;
+          if (totalWins >= 5) unlockAchievement("emperor");
         } else if (winner) {
           trackGameResult("defeat", {
             turns: turnCount,
@@ -1330,6 +1404,20 @@ function startSingleplayerGame(): void {
         hudTerritory.textContent = player
           ? String(player.territoryCount)
           : "0";
+
+      // Achievement checks (throttled to avoid doing work every tick)
+      if (turnCount % 10 === 0) {
+        const playerRef = game.getPlayer(playerID);
+        if (playerRef && playerRef.territoryCount >= 100) {
+          unlockAchievement("expander");
+        }
+
+        // Count AI kills
+        const aiKills = aiPlayers.filter((id) => !game.getPlayer(id)?.isAlive).length;
+        if (aiKills >= 3) unlockAchievement("conqueror");
+
+        if (turnCount >= 500) unlockAchievement("survivor");
+      }
     }, config.turnIntervalMs);
 
     // Start rendering
@@ -1586,6 +1674,22 @@ function setupNavigation(): void {
     const box = overlay?.querySelector(".modal-box") as HTMLElement | null;
     if (!overlay || !box) return;
 
+    const unlocked = getUnlockedAchievements();
+    const achHtml = `
+      <div style="margin-top:16px;">
+        <div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">🏆 Achievements (${unlocked.length}/${ACHIEVEMENTS.length})</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;max-height:200px;overflow-y:auto;">
+          ${ACHIEVEMENTS.map((a) => {
+            const u = unlocked.includes(a.id);
+            return `<div style="background:${u ? "rgba(251,191,36,0.1)" : "rgba(255,255,255,0.03)"};border:1px solid ${u ? "rgba(251,191,36,0.3)" : "rgba(255,255,255,0.08)"};border-radius:6px;padding:8px 10px;${u ? "" : "opacity:0.4;"}">
+              <div style="font-size:14px;">${a.icon} <span style="font-weight:600;color:${u ? "#fbbf24" : "#9ca3af"};">${a.name}</span></div>
+              <div style="font-size:10px;color:#6b7280;margin-top:2px;">${a.description}</div>
+            </div>`;
+          }).join("")}
+        </div>
+      </div>
+    `;
+
     box.style.maxWidth = "520px";
     box.innerHTML = `
       <h3 style="font-size:22px;font-weight:700;margin-bottom:16px;">📊 Your Stats</h3>
@@ -1636,6 +1740,7 @@ function setupNavigation(): void {
         </div>
       `
       }
+      ${achHtml}
       <button class="modal-close" id="modal-close-btn" style="margin-top:16px;">Close</button>
     `;
     overlay.classList.add("visible");

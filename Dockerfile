@@ -23,7 +23,6 @@ RUN apt-get update && \
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
 COPY --from=build /app/static ./static
 COPY --from=build /app/src ./src
 COPY --from=build /app/tsconfig.json ./

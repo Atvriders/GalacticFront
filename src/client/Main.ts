@@ -814,6 +814,75 @@ function startSingleplayerGame(): void {
       }
     };
 
+    // ── Minimap ──────────────────────────────────────────────────────────
+    function drawMinimap(): void {
+      const mm = document.getElementById(
+        "minimap-canvas",
+      ) as HTMLCanvasElement | null;
+      if (!mm) return;
+      const mctx = mm.getContext("2d");
+      if (!mctx) return;
+
+      const w = (mm.width = 200);
+      const h = (mm.height = 130);
+
+      mctx.fillStyle = "#0a0a12";
+      mctx.fillRect(0, 0, w, h);
+
+      const sx = w / config.mapWidth;
+      const sy = h / config.mapHeight;
+
+      // Draw owned tiles as colored pixels
+      for (let ty = 0; ty < config.mapHeight; ty++) {
+        for (let tx = 0; tx < config.mapWidth; tx++) {
+          const tile = ty * config.mapWidth + tx;
+          const owner = game.map.getOwner(tile);
+          if (owner !== 0) {
+            mctx.fillStyle = playerColors.get(owner) ?? "#666";
+            mctx.fillRect(tx * sx, ty * sy, Math.max(1, sx), Math.max(1, sy));
+          }
+        }
+      }
+
+      // Viewport rectangle
+      const vx = (-camX / (tileSize * zoom)) * sx;
+      const vy = (-camY / (tileSize * zoom)) * sy;
+      const vw = (canvas.width / (tileSize * zoom)) * sx;
+      const vh = (canvas.height / (tileSize * zoom)) * sy;
+      mctx.strokeStyle = "#22d3ee";
+      mctx.lineWidth = 1.5;
+      mctx.strokeRect(vx, vy, vw, vh);
+    }
+
+    // Click-to-teleport on the minimap
+    const minimapEl = document.getElementById("minimap-canvas");
+    const onMinimapClick = (e: Event): void => {
+      if (!minimapEl) return;
+      const rect = (minimapEl as HTMLElement).getBoundingClientRect();
+      const mouseEvent = e as MouseEvent;
+      const x =
+        ((mouseEvent.clientX - rect.left) / rect.width) * config.mapWidth;
+      const y =
+        ((mouseEvent.clientY - rect.top) / rect.height) * config.mapHeight;
+      camX = canvas.width / 2 - x * tileSize * zoom;
+      camY = canvas.height / 2 - y * tileSize * zoom;
+    };
+    if (minimapEl) {
+      minimapEl.addEventListener("click", onMinimapClick);
+      gameCleanupFns.push(() =>
+        minimapEl.removeEventListener("click", onMinimapClick),
+      );
+    }
+
+    // Show the minimap container during gameplay
+    const minimapContainer = document.getElementById("game-minimap");
+    if (minimapContainer) {
+      minimapContainer.style.display = "block";
+      gameCleanupFns.push(() => {
+        minimapContainer.style.display = "none";
+      });
+    }
+
     // ── Render loop ──────────────────────────────────────────────────────
     let frameCount = 0;
     let lastFpsTime = performance.now();
@@ -1001,6 +1070,9 @@ function startSingleplayerGame(): void {
 
       // Leaderboard
       drawLeaderboard(ctx, w);
+
+      // Minimap (throttled for performance)
+      if (frameCount % 10 === 0) drawMinimap();
 
       // FPS
       frameCount++;
@@ -1249,6 +1321,11 @@ function exitGame(): void {
   }
   gameCleanupFns = [];
 
+  if (activeKeyHandler) {
+    window.removeEventListener("keydown", activeKeyHandler);
+    activeKeyHandler = null;
+  }
+
   const hud = document.getElementById("game-hud");
   if (hud) hud.style.display = "none";
   const exitBtn = document.getElementById("btn-exit-game");
@@ -1260,6 +1337,7 @@ function exitGame(): void {
   }
 
   document.getElementById("game-help")?.remove();
+  document.getElementById("kbd-help")?.remove();
 
   const events = document.getElementById("game-events");
   if (events) events.innerHTML = "";

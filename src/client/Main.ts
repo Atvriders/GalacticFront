@@ -402,12 +402,46 @@ function startSingleplayerGame(): void {
   showPage("page-game");
 }
 
+// ── Exit game ───────────────────────────────────────────────────────────────
+
+function exitGame(): void {
+  // Stop game tick loop
+  if (gameLoopInterval !== null) {
+    clearInterval(gameLoopInterval);
+    gameLoopInterval = null;
+  }
+
+  // Stop renderer
+  if (activeRenderer) {
+    activeRenderer.stop();
+    activeRenderer = null;
+  }
+
+  activeRunner = null;
+
+  // Hide HUD
+  const hud = document.getElementById("game-hud");
+  if (hud) hud.style.display = "none";
+
+  // Remove game canvas
+  const gamePage = document.getElementById("page-game");
+  const canvas = gamePage?.querySelector("canvas");
+  if (canvas) canvas.remove();
+
+  // Navigate home
+  showPage("page-home");
+}
+
 // ── Navigation wiring ────────────────────────────────────────────────────────
 
 function setupNavigation(): void {
-  // Logo -> home
+  // Logo -> home (exits game if running)
   document.getElementById("nav-logo")?.addEventListener("click", () => {
-    showPage("page-home");
+    if (activeRunner !== null) {
+      exitGame();
+    } else {
+      showPage("page-home");
+    }
   });
 
   // Nav links
@@ -486,6 +520,13 @@ function setupNavigation(): void {
   // Setup page: start game
   document.getElementById("btn-start-game")?.addEventListener("click", () => {
     startSingleplayerGame();
+  });
+
+  // ESC key exits the game
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && activeRunner !== null) {
+      exitGame();
+    }
   });
 }
 
